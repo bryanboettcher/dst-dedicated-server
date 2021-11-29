@@ -2,7 +2,13 @@
 
 # Check for game updates before each start. If the game client updates and your server is out of date, you won't be
 # able to see it on the server list. If that happens just restart the containers and you should get the latest version
-/home/dst/steamcmd.sh +@ShutdownOnFailedCommand 1 +@NoPromptForPassword 1 +login anonymous +force_install_dir /home/dst/server_dst +app_update 343050 validate +quit
+/home/dst/steamcmd.sh \
+	+@ShutdownOnFailedCommand 1 \
+	+@NoPromptForPassword 1 \
+	+force_install_dir /home/dst/server_dst \
+	+login anonymous \
+	+app_update 343050 validate \
+	+quit
 
 # Copy dedicated_server_mods_setup.lua
 ds_mods_setup="$HOME/.klei/DoNotStarveTogether/DSTWhalesCluster/mods/dedicated_server_mods_setup.lua"

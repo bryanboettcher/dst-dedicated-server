@@ -10,7 +10,7 @@ LABEL \
 RUN set -x
 RUN dpkg --add-architecture i386
 RUN apt-get update && apt-get upgrade -y
-RUN DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y wget ca-certificates lib32gcc1 lib32stdc++6 libcurl4-gnutls-dev:i386
+RUN DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y wget ca-certificates lib32gcc-s1 lib32stdc++6 libcurl4-gnutls-dev:i386
 
 # Create specific user to run DST server
 RUN useradd -ms /bin/bash/ dst
@@ -30,8 +30,8 @@ RUN mkdir -p .klei/DoNotStarveTogether server_dst/mods
 RUN ./steamcmd.sh \
     +@ShutdownOnFailedCommand 1 \
     +@NoPromptForPassword 1 \
-    +login anonymous \
     +force_install_dir /home/dst/server_dst \
+    +login anonymous \
     +app_update 343050 validate \
     +quit
 
