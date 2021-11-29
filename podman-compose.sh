@@ -2,7 +2,6 @@
 
 IMAGE="localhost/dst-server:latest"
 
-
 case "${1}" in
   start|up)
 

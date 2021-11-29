@@ -1,0 +1,23 @@
+FROM localhost/steamcmd:latest
+
+LABEL \
+    description="Don't Starve Together dedicated server" \
+    source="https://github.com/mathielo/dst-dedicated-server"
+
+USER steam
+RUN mkdir -p .klei/DoNotStarveTogether server_dst/mods
+
+# Install Don't Starve Together
+RUN ./steamcmd.sh \
+    +@ShutdownOnFailedCommand 1 \
+    +@NoPromptForPassword 1 \
+    +force_install_dir /home/steam/server_dst \
+    +login anonymous \
+    +app_update 343050 validate \
+    +quit
+
+VOLUME ["/home/dst/.klei/DoNotStarveTogether", "/home/dst/server_dst/mods"]
+
+COPY ["start-container-server.sh", "/home/dst/"]
+EXPOSE 10999/udp
+ENTRYPOINT ["/home/dst/start-container-server.sh"]
