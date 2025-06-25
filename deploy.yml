@@ -3,17 +3,44 @@
 # multiple services can be defined, and an overworld will be started for each one
 # the following config declares 3 worlds  (Overworld, Caves, Foreign)
 
+# exported volumes:
+#  - /dst/config        - shard-specific config directory
+#  - /dst/mods          - cluster-specific mods directory
+#  - /opt/dst_server    - where the server is ultimately installed / running from
+#  - /home/dst          - working directory / entrypoints
+#
+#
+# folder structure for /dst:
+# /dst
+#  /config
+#   + worldgenoverride.lua    [required -- controls overall world gen]
+#   + cluster.ini             [required -- controls overall cluster]
+#   + /Overworld              [required -- one of the shards]
+#   +-- server.ini            [required -- settings for this shard]
+#   +-- worldgenoverride.lua  [optional -- allows customizing this shard]
+#   + /Caves                  [optional -- another shard]
+#   +-- server.ini            [required -- settings for this shard]
+#   +-- worldgenoverride.lua  [optional -- allows customizing this shard]
+#   + /TerrariaCaves          [optional -- another shard]
+#   +-- server.ini            [required -- settings for this shard]
+#   +-- worldgenoverride.lua  [optional -- allows customizing this shard]
+#  /mods
+#   + modoverrides.lua
+#   + /Overworld              [optional -- will apply the overrides to just the Overworld shard]
+#   +-- modoverrides.lua
+
 services:
   dst_overworld:
-    hostname: dst_overworld
+    hostname: dst_overworld # used in server.ini files for other shards to connect via hostname
     image: bryanboettcher/dst-dedicated-server:latest
     networks:
       - dst_cluster
     ports:
       - 11018:11018/udp   # must match the server.ini for THIS service
     volumes:
-      - ./DSTClusterConfig:/home/dst/.klei/DoNotStarveTogether/DSTWhalesCluster
-      - ./volumes/mods:/home/dst/server_dst/mods
+      - /mnt/fast/dst:/dst
+      - dst_server_overworld:/opt/dst_server
+      - dst_home_overworld:/home/dst
     environment:
       - SHARD_NAME=Overworld
 
@@ -30,8 +57,9 @@ services:
     networks:
       - dst_cluster
     volumes:
-      - ./DSTClusterConfig:/home/dst/.klei/DoNotStarveTogether/DSTWhalesCluster
-      - ./volumes/mods:/home/dst/server_dst/mods
+      - /mnt/fast/dst:/dst
+      - dst_server_caves:/opt/dst_server
+      - dst_home_caves:/home/dst
     environment:
       - SHARD_NAME=Caves
 
@@ -43,8 +71,9 @@ services:
     networks:
       - dst_cluster
     volumes:
-      - ./DSTClusterConfig:/home/dst/.klei/DoNotStarveTogether/DSTWhalesCluster
-      - ./volumes/mods:/home/dst/server_dst/mods
+      - /mnt/fast/dst:/dst
+      - dst_server_terraria_caves:/opt/dst_server
+      - dst_home_terraria_caves:/home/dst
     environment:
       - SHARD_NAME=TerrariaCaves
 
