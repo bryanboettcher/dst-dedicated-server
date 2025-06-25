@@ -19,7 +19,7 @@ COPY entrypoint.sh prepare.sh install.sh run.sh /home/dst/
 RUN set -x && \
     dpkg --add-architecture i386 && \
     apt update && apt upgrade -y && \
-    DEBIAN_FRONTEND=noninteractive apt install --no-install-recommends -y wget ca-certificates lib32gcc1 lib32stdc++6 libcurl4-gnutls-dev:i386 && \
+    DEBIAN_FRONTEND=noninteractive apt install --no-install-recommends -y wget ca-certificates lib32gcc-s1 lib32stdc++6 libcurl4-gnutls-dev:i386 && \
     # Download Steam CMD (https://developer.valvesoftware.com/wiki/SteamCMD#Downloading_SteamCMD)
     wget -q -O - "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf - && \
     chown -R dst:dst ./ && \

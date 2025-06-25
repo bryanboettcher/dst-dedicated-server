@@ -1,0 +1,60 @@
+# Docker Swarm deploy file
+
+# multiple services can be defined, and an overworld will be started for each one
+# the following config declares 3 worlds  (Overworld, Caves, Foreign)
+
+services:
+  dst_overworld:
+    hostname: dst_overworld
+    image: bryanboettcher/dst-dedicated-server:latest
+    networks:
+      - dst_cluster
+    ports:
+      - 11018:11018/udp   # must match the server.ini for THIS service
+    volumes:
+      - ./DSTClusterConfig:/home/dst/.klei/DoNotStarveTogether/DSTWhalesCluster
+      - ./volumes/mods:/home/dst/server_dst/mods
+    environment:
+      - SHARD_NAME=Overworld
+
+    # These allow to stdin when attaching to the container via `docker attach`
+    # Any server commands should be sent to the master shard as it manages its slaves (Caves)
+    stdin_open: true
+    tty: true
+
+  dst_caves:
+    hostname: dst_caves
+    image: bryanboettcher/dst-dedicated-server:latest
+    ports:
+      - 11017:11017/udp   # must match the server.ini for THIS service
+    networks:
+      - dst_cluster
+    volumes:
+      - ./DSTClusterConfig:/home/dst/.klei/DoNotStarveTogether/DSTWhalesCluster
+      - ./volumes/mods:/home/dst/server_dst/mods
+    environment:
+      - SHARD_NAME=Caves
+
+  dst_terraria_caves:
+    hostname: terraria_caves
+    image: bryanboettcher/dst-dedicated-server:latest
+    ports:
+      - 11016:11016/udp
+    networks:
+      - dst_cluster
+    volumes:
+      - ./DSTClusterConfig:/home/dst/.klei/DoNotStarveTogether/DSTWhalesCluster
+      - ./volumes/mods:/home/dst/server_dst/mods
+    environment:
+      - SHARD_NAME=TerrariaCaves
+
+networks:
+  dst_cluster:
+
+configs:
+  dst_overworld_config:
+    external: true
+  dst_caves_config:
+    external: true
+  dst_foreign_config:
+    external: true
