@@ -3,13 +3,13 @@
 echo "INSTALL.SH: "
 whoami
 
-$USER_ROOT/steamcmd.sh \
-  +@ShutdownOnFailedCommand 1 \
-  +@NoPromptForPassword 1 \
-  +login anonymous \
-  +force_install_dir $INSTALL_ROOT \
-  +app_update 343050 validate \
-  +quit
+steamcmd.sh \
+    +@ShutdownOnFailedCommand 1 \
+    +@NoPromptForPassword 1 \
+    +login anonymous \
+    +force_install_dir $INSTALL_ROOT \
+    +app_update 343050 validate \
+    +quit
 
 # Copy dedicated_server_mods_setup.lua
 SERVER_MODS_SETUP="$MODS_PATH/dedicated_server_mods_setup.lua"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd "$INSTALL_ROOT"
+cd /opt/dst_server
 
 echo "RUN.SH: "
 whoami

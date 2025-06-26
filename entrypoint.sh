@@ -1,8 +1,9 @@
 #!/bin/bash
-export MODS_PATH=${MODS_PATH:/dst/mods}
-export CONFIG_PATH=${CONFIG_PATH:/dst/config}
+export MODS_PATH=/dst/mods
+export CONFIG_PATH=/dst/config
+export CLUSTER_NAME=${CLUSTER_NAME:-DST Cluster}
+export SHARD_NAME=${SHARD_NAME:-Shard_1}
 
-export INSTALL_ROOT=${$INSTALL_ROOT:/opt/dst_server}
 export CLUSTER_ROOT=${CLUSTER_ROOT:-"$CONFIG_PATH/$CLUSTER_NAME"}
 export SHARD_ROOT=${SHARD_ROOT:-"$CLUSTER_ROOT/$SHARD_NAME"}
 export MODS_ROOT=${MODS_ROOT:-"$CLUSTER_ROOT/mods"}
