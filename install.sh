@@ -3,7 +3,7 @@
 echo "INSTALL.SH: "
 whoami
 
-steamcmd.sh \
+steamcmd \
     +@ShutdownOnFailedCommand 1 \
     +@NoPromptForPassword 1 \
     +login anonymous \

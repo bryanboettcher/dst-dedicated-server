@@ -17,7 +17,7 @@ RUN \
     # set permissions
     chown -R dst:dst /opt/dst_server /dst && \
     # install DST (baked into image for Docker users; K8s overlays with emptyDir)
-    steamcmd.sh \
+    steamcmd \
         +@ShutdownOnFailedCommand 1 \
         +@NoPromptForPassword 1 \
         +login anonymous \
