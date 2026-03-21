@@ -8,13 +8,15 @@ LABEL org.opencontainers.image.authors="Bryan Boettcher <bryan.boettcher@gmail.c
 COPY entrypoint.sh install.sh prepare.sh run.sh /usr/local/bin/
 
 RUN \
+    # make scripts executable
+    chmod +x /usr/local/bin/*.sh && \
     # create service account
-    useradd -m -s /bin/bash/ -d /home/dst dst && \
+    useradd -m -s /bin/bash -d /home/dst dst && \
     # create local directories for volume mounts
     mkdir -p /opt/dst_server /dst/{mods,config} && \
     # set permissions
-    chmod 0777 -R /opt/dst_server /dst && \
-    # install DST
+    chown -R dst:dst /opt/dst_server /dst && \
+    # install DST (baked into image for Docker users; K8s overlays with emptyDir)
     steamcmd.sh \
         +@ShutdownOnFailedCommand 1 \
         +@NoPromptForPassword 1 \
@@ -22,8 +24,6 @@ RUN \
         +force_install_dir /opt/dst_server \
         +app_update 343050 validate \
         +quit
-
-USER dst
 
 VOLUME [ "/dst/mods", "/dst/config", "/opt/dst_server" ]
 

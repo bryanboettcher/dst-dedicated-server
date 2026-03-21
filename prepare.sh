@@ -3,7 +3,7 @@
 echo "PREPARE.SH: "
 whoami
 
-if [ -n "$PUID" -o -n "$PGID" ]; then
+if [ -n "$PUID" ] || [ -n "$PGID" ]; then
   export PUID=${PUID:-$(grep dst /etc/passwd | cut -d":" -f3)}
   export PGID=${PGID:-$(grep dst /etc/passwd | cut -d":" -f4)}
   USERHOME=$(grep dst /etc/passwd | cut -d":" -f6)
@@ -12,3 +12,9 @@ if [ -n "$PUID" -o -n "$PGID" ]; then
   usermod -o -u "${PUID}" dst
   usermod -d "${USERHOME}" dst
 fi
+
+# ensure shard directories exist
+mkdir -p "$CLUSTER_ROOT" "$SHARD_ROOT"
+
+# fix permissions on all mounted volumes
+chown -R dst:dst /dst /opt/dst_server /home/dst
