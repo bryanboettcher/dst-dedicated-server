@@ -6,8 +6,8 @@ whoami
 steamcmd \
     +@ShutdownOnFailedCommand 1 \
     +@NoPromptForPassword 1 \
-    +login anonymous \
     +force_install_dir $INSTALL_ROOT \
+    +login anonymous \
     +app_update 343050 validate \
     +quit
 

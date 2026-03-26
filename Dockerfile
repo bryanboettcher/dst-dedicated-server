@@ -16,8 +16,8 @@ RUN chmod +x /usr/local/bin/*.sh && \
 RUN steamcmd \
         +@ShutdownOnFailedCommand 1 \
         +@NoPromptForPassword 1 \
-        +login anonymous \
         +force_install_dir /opt/dst_server \
+        +login anonymous \
         +app_update 343050 validate \
         +quit && \
     chown -R dst:dst /opt/dst_server /dst
