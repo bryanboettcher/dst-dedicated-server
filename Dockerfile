@@ -7,20 +7,11 @@ LABEL org.opencontainers.image.authors="Bryan Boettcher <bryan.boettcher@gmail.c
 
 COPY entrypoint.sh install.sh prepare.sh run.sh /usr/local/bin/
 
-# Set up user and directories
+# Set up user and directories; DST server is installed at runtime via install.sh
 RUN chmod +x /usr/local/bin/*.sh && \
     useradd -m -s /bin/bash -d /home/dst dst && \
-    mkdir -p /opt/dst_server /dst/mods /dst/config
-
-# Install DST server (baked into image for Docker users; K8s overlays with emptyDir)
-RUN steamcmd \
-        +@ShutdownOnFailedCommand 1 \
-        +@NoPromptForPassword 1 \
-        +login anonymous \
-        +force_install_dir /opt/dst_server \
-        +app_update 343050 validate \
-        +quit && \
-    chown -R dst:dst /opt/dst_server /dst
+    mkdir -p /opt/dst_server /dst/mods /dst/config && \
+    chown -R dst:dst /opt/dst_server /dst /home/dst
 
 VOLUME [ "/dst/mods", "/dst/config", "/opt/dst_server" ]
 
