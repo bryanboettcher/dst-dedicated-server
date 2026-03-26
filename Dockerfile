@@ -7,8 +7,11 @@ LABEL org.opencontainers.image.authors="Bryan Boettcher <bryan.boettcher@gmail.c
 
 COPY entrypoint.sh install.sh prepare.sh run.sh /usr/local/bin/
 
-# Set up user and directories; DST server is installed at runtime via install.sh
-RUN chmod +x /usr/local/bin/*.sh && \
+# Install DST runtime dependencies and set up user/directories
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libcurl3-gnutls && \
+    rm -rf /var/lib/apt/lists/* && \
+    chmod +x /usr/local/bin/*.sh && \
     useradd -m -s /bin/bash -d /home/dst dst && \
     mkdir -p /opt/dst_server /dst/mods /dst/config && \
     chown -R dst:dst /opt/dst_server /dst /home/dst
