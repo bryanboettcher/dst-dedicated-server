@@ -10,10 +10,10 @@ export SHARD_ROOT=${SHARD_ROOT:-"$CLUSTER_ROOT/$SHARD_NAME"}
 export USER_ROOT=${USER_ROOT:-/home/dst}
 
 # ensure directories exist and are permissioned correctly
-./prepare.sh && \
+/usr/local/bin/prepare.sh && \
 
 # install the game and mods
-su -c "./install.sh" dst && \
+su -c "/usr/local/bin/install.sh" dst && \
 
 # run the game
-su -c "./run.sh" --pty dst
+su -c "/usr/local/bin/run.sh" --pty dst
