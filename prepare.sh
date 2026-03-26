@@ -16,5 +16,5 @@ fi
 # ensure shard directories exist
 mkdir -p "$CLUSTER_ROOT" "$SHARD_ROOT"
 
-# fix permissions on all mounted volumes
-chown -R dst:dst /dst /opt/dst_server /home/dst
+# fix permissions on writable volumes (skip /dst/mods which may be a read-only ConfigMap)
+chown -R dst:dst /dst/config /opt/dst_server /home/dst
