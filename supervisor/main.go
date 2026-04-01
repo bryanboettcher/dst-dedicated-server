@@ -36,49 +36,52 @@ func main() {
 	// Start zombie reaper (we are PID 1)
 	ReapZombies()
 
-	// State tracking
-	var state StateManager
-	var serverStart time.Time
-
 	// Determine game port for A2S probing (default 10999)
 	gamePort := "10999"
 	if p := os.Getenv("DST_GAME_PORT"); p != "" {
 		gamePort = p
 	}
 
-	// Health checker for A2S probing
-	health := NewHealthChecker(gamePort, &state)
+	// Build the supervisor
+	sup := &Supervisor{
+		ClusterName:     clusterName,
+		ShardName:       shardName,
+		AdminToken:      os.Getenv("DST_ADMIN_TOKEN"),
+		env:             env,
+		shutdownTimeout: *shutdownTimeout,
+	}
+	sup.Health = NewHealthChecker(gamePort, &sup.State)
 
 	// Start HTTP server immediately so probes work during install
-	go StartHTTP(*httpAddr, &state, &serverStart, clusterName, shardName, health)
+	go StartHTTP(*httpAddr, sup)
 
 	// Phase: prepare
-	state.Set(StatePreparing)
+	sup.State.Set(StatePreparing)
 	if err := RunScript("/usr/local/bin/prepare.sh", false, env); err != nil {
 		slog.Error("prepare failed", "error", err)
 		os.Exit(1)
 	}
 
 	// Phase: install
-	state.Set(StateInstalling)
+	sup.State.Set(StateInstalling)
 	if err := RunScript("/usr/local/bin/install.sh", true, env); err != nil {
 		slog.Error("install failed", "error", err)
 		os.Exit(1)
 	}
 
 	// Phase: start DST
-	state.Set(StateStarting)
+	sup.State.Set(StateStarting)
 	dst, err := StartDST(env)
 	if err != nil {
 		slog.Error("failed to start DST", "error", err)
 		os.Exit(1)
 	}
 
-	serverStart = time.Now()
+	sup.SetProcess(dst)
+	sup.ServerStart = time.Now()
 
-	// Start A2S health checking — this will transition from Starting → Running
-	// once the DST server responds to queries.
-	go health.Run()
+	// Start A2S health checking — transitions Starting → Running on first response
+	go sup.Health.Run()
 	slog.Info("DST server launched, waiting for A2S readiness")
 
 	// Wait for either a signal or the DST process to exit
@@ -88,48 +91,17 @@ func main() {
 	select {
 	case sig := <-sigCh:
 		slog.Info("received signal, initiating graceful shutdown", "signal", sig)
-		gracefulShutdown(dst, &state, *shutdownTimeout)
+		sup.GracefulShutdownFromSignal()
 
-	case err := <-dst.Wait():
+	case err := <-sup.WaitForExit():
 		if err != nil {
 			slog.Error("DST server exited with error", "error", err)
-			state.Set(StateStopped)
+			sup.State.Set(StateStopped)
 			os.Exit(1)
 		}
 		slog.Info("DST server exited cleanly")
-		state.Set(StateStopped)
+		sup.State.Set(StateStopped)
 	}
-}
-
-func gracefulShutdown(dst *DSTProcess, state *StateManager, timeout time.Duration) {
-	state.Set(StateStopping)
-
-	// Send save command
-	slog.Info("sending c_save()")
-	if err := dst.SendCommand("c_save()"); err != nil {
-		slog.Warn("failed to send save command", "error", err)
-	}
-
-	// Give save a moment to flush
-	time.Sleep(5 * time.Second)
-
-	// Send shutdown command
-	slog.Info("sending c_shutdown()")
-	if err := dst.SendCommand("c_shutdown()"); err != nil {
-		slog.Warn("failed to send shutdown command", "error", err)
-	}
-
-	// Wait for exit or timeout
-	select {
-	case <-dst.Wait():
-		slog.Info("DST server exited after graceful shutdown")
-	case <-time.After(timeout):
-		slog.Warn("DST did not exit in time, sending SIGKILL", "timeout", timeout)
-		dst.Signal(syscall.SIGKILL)
-		<-dst.Wait()
-	}
-
-	state.Set(StateStopped)
 }
 
 func setDefault(key, value string) {
