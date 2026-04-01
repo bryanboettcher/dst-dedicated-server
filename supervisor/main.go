@@ -36,16 +36,23 @@ func main() {
 	// Start zombie reaper (we are PID 1)
 	ReapZombies()
 
-	// Determine game port for A2S probing (default 10999)
-	gamePort := "10999"
+	// Parse shard config (server.ini) for is_master and server_port
+	shardRoot := os.Getenv("SHARD_ROOT")
+	shardCfg := ParseShardConfig(shardRoot + "/server.ini")
+
+	// Allow env override for game port
+	gamePort := shardCfg.Port
 	if p := os.Getenv("DST_GAME_PORT"); p != "" {
 		gamePort = p
 	}
+
+	slog.Info("shard config", "is_master", shardCfg.IsMaster, "game_port", gamePort)
 
 	// Build the supervisor
 	sup := &Supervisor{
 		ClusterName:     clusterName,
 		ShardName:       shardName,
+		IsMaster:        shardCfg.IsMaster,
 		AdminToken:      os.Getenv("DST_ADMIN_TOKEN"),
 		env:             env,
 		shutdownTimeout: *shutdownTimeout,

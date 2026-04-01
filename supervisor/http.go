@@ -20,6 +20,7 @@ type statusResponse struct {
 	MaxPlayers *int   `json:"max_players,omitempty"`
 	Cluster    string `json:"cluster"`
 	Shard      string `json:"shard"`
+	IsMaster   bool   `json:"is_master"`
 }
 
 type apiResponse struct {
@@ -65,9 +66,10 @@ func StartHTTP(addr string, sup *Supervisor) {
 
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, r *http.Request) {
 		resp := statusResponse{
-			State:   sup.State.Get().String(),
-			Cluster: sup.ClusterName,
-			Shard:   sup.ShardName,
+			State:    sup.State.Get().String(),
+			Cluster:  sup.ClusterName,
+			Shard:    sup.ShardName,
+			IsMaster: sup.IsMaster,
 		}
 		if !sup.ServerStart.IsZero() {
 			resp.Uptime = time.Since(sup.ServerStart).Truncate(time.Second).String()
@@ -112,7 +114,12 @@ func StartHTTP(addr string, sup *Supervisor) {
 			fmt.Fprintf(w, "dst_server_max_players %d\n", info.MaxPlayers)
 		}
 
+		isMaster := 0
+		if sup.IsMaster {
+			isMaster = 1
+		}
 		fmt.Fprintf(w, "dst_server_info{cluster=%q,shard=%q} 1\n", sup.ClusterName, sup.ShardName)
+		fmt.Fprintf(w, "dst_server_is_master %d\n", isMaster)
 	})
 
 	// --- Management API ---

@@ -12,6 +12,6 @@ LABEL org.opencontainers.image.authors="Bryan Boettcher <bryan.boettcher@gmail.c
 
 COPY --from=builder /build/dst-webui /dst-webui
 
-EXPOSE 3000/tcp
+EXPOSE 3002/tcp
 
 ENTRYPOINT ["/dst-webui"]

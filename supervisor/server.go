@@ -16,6 +16,7 @@ type Supervisor struct {
 	ServerStart time.Time
 	ClusterName string
 	ShardName   string
+	IsMaster    bool
 	AdminToken  string
 
 	mu              sync.Mutex

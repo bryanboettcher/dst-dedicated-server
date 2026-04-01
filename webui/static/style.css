@@ -27,7 +27,7 @@ body {
 }
 
 #app {
-  max-width: 800px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 1.5rem;
 }
@@ -59,62 +59,131 @@ header h1 {
 .badge-connected  { background: var(--success); color: #000; }
 .badge-error      { background: var(--danger); color: #fff; }
 
-/* Status grid */
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+.master-badge {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  vertical-align: middle;
+  margin-left: 0.5rem;
 }
 
-.card {
-  background: var(--surface);
+/* Cluster actions */
+.cluster-actions {
+  margin-bottom: 1.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem;
+  background: var(--surface);
 }
 
-.card-label {
-  font-size: 0.7rem;
+.cluster-actions h2 {
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-dim);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.cluster-actions h2:first-child {
+  margin-top: 0;
+}
+
+/* Shard sections */
+.shard-section {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.shard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.shard-header h2 {
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text);
+  margin: 0;
+}
+
+.shard-header .shard-state {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.shard-body {
+  padding: 1rem;
+}
+
+/* Status grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.card-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
 }
 
 .card-value {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 
 .card-value.small {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 500;
   word-break: break-word;
 }
 
 /* State colors */
-.state-running    { color: var(--success); }
-.state-starting   { color: var(--warning); }
-.state-installing { color: var(--warning); }
-.state-preparing  { color: var(--text-dim); }
-.state-stopping   { color: var(--danger); }
-.state-stopped    { color: var(--danger); }
+.state-running     { color: var(--success); }
+.state-starting    { color: var(--warning); }
+.state-installing  { color: var(--warning); }
+.state-preparing   { color: var(--text-dim); }
+.state-stopping    { color: var(--danger); }
+.state-stopped     { color: var(--danger); }
+.state-unreachable { color: var(--danger); }
 
 /* Actions */
-.actions, .console {
-  margin-bottom: 1.5rem;
-}
-
-h2 {
-  font-size: 0.85rem;
+.shard-actions h3 {
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-dim);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
-.button-row {
+.action-row {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
@@ -123,13 +192,14 @@ h2 {
 }
 
 .btn {
-  padding: 0.5rem 1.25rem;
+  padding: 0.45rem 1rem;
   border: none;
   border-radius: var(--radius);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
 }
 
 .btn:hover { opacity: 0.85; }
@@ -142,13 +212,13 @@ h2 {
 .btn-danger    { background: var(--danger); color: #fff; }
 
 .input-inline {
-  padding: 0.5rem 0.75rem;
-  background: var(--surface);
+  padding: 0.45rem 0.75rem;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text);
-  font-size: 0.875rem;
-  width: 140px;
+  font-size: 0.8rem;
+  width: 100px;
 }
 
 .input-inline:focus {
@@ -156,11 +226,65 @@ h2 {
   border-color: var(--primary);
 }
 
+/* Global actions */
+.global-actions {
+  margin-bottom: 1.5rem;
+}
+
+.global-actions h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+}
+
+.announce-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.announce-row input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.announce-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
 /* Console */
+.console {
+  margin-bottom: 1.5rem;
+}
+
+.console h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+}
+
 .console-input-row {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.console-input-row select {
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.8rem;
 }
 
 .console-input-row input {
@@ -171,9 +295,10 @@ h2 {
   border-radius: var(--radius);
   color: var(--text);
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
+.console-input-row select:focus,
 .console-input-row input:focus {
   outline: none;
   border-color: var(--primary);
@@ -185,7 +310,7 @@ h2 {
   border-radius: var(--radius);
   padding: 0.75rem;
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   max-height: 200px;
   overflow-y: auto;
   color: var(--text-dim);
@@ -196,15 +321,12 @@ h2 {
   border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
-#console-log .log-entry:last-child {
-  border-bottom: none;
-}
-
-#console-log .log-ok { color: var(--success); }
+#console-log .log-entry:last-child { border-bottom: none; }
+#console-log .log-ok  { color: var(--success); }
 #console-log .log-err { color: var(--danger); }
 #console-log .log-time { color: var(--text-dim); margin-right: 0.5rem; }
 
-/* Toast notifications */
+/* Toast */
 #toast-container {
   position: fixed;
   bottom: 1.5rem;

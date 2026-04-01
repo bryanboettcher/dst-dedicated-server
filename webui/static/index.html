@@ -13,50 +13,43 @@
       <div id="connection-status" class="badge badge-connecting">connecting</div>
     </header>
 
-    <section class="status-grid">
-      <div class="card">
-        <div class="card-label">State</div>
-        <div class="card-value" id="state">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Players</div>
-        <div class="card-value" id="players">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Server</div>
-        <div class="card-value small" id="server-name">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Map</div>
-        <div class="card-value small" id="map">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Shard</div>
-        <div class="card-value small" id="shard">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Uptime</div>
-        <div class="card-value small" id="uptime">—</div>
-      </div>
-    </section>
+    <section id="shards"></section>
 
-    <section class="actions">
-      <h2>Actions</h2>
-      <div class="button-row">
-        <button class="btn btn-primary" onclick="apiAction('save')">Save</button>
-        <button class="btn btn-warning" onclick="apiAction('restart')">Restart</button>
-        <button class="btn btn-danger" onclick="confirmAction('shutdown')">Shutdown</button>
+    <section class="cluster-actions">
+      <h2>Cluster</h2>
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="clusterAction('save')">Save</button>
       </div>
-      <div class="button-row">
-        <button class="btn btn-secondary" onclick="rollback()">Rollback</button>
-        <input type="number" id="rollback-days" min="0" max="100" placeholder="days (optional)" class="input-inline">
+      <div class="action-row">
+        <button class="btn btn-danger" onclick="confirmClusterAction('shutdown')">Shutdown</button>
+      </div>
+
+      <h2>World</h2>
+      <div class="action-row">
+        <button class="btn btn-secondary" onclick="clusterRollback()">Rollback</button>
+        <input type="number" id="rollback-days" min="0" max="100"
+               placeholder="days" class="input-inline">
+      </div>
+      <div class="action-row">
+        <button class="btn btn-secondary" onclick="clusterCommand('c_skip(1)')">Skip Day</button>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-danger" onclick="confirmClusterCommand('c_regenerateworld()', 'regenerate the world')">Regenerate World</button>
+      </div>
+
+      <h2>Announce</h2>
+      <div class="announce-row">
+        <input type="text" id="announce-input" placeholder="Message to all players"
+               onkeydown="if(event.key==='Enter')announceAll()">
+        <button class="btn btn-primary" onclick="announceAll()">Announce</button>
       </div>
     </section>
 
     <section class="console">
       <h2>Console</h2>
       <div class="console-input-row">
-        <input type="text" id="console-input" placeholder="c_announce(&quot;hello&quot;)"
+        <select id="console-shard"></select>
+        <input type="text" id="console-input" placeholder='c_countprefabs("beefalo")'
                onkeydown="if(event.key==='Enter')sendConsole()">
         <button class="btn btn-primary" onclick="sendConsole()">Send</button>
       </div>
