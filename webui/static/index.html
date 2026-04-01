@@ -13,63 +13,69 @@
       <div id="connection-status" class="badge badge-connecting">connecting</div>
     </header>
 
-    <section id="shards"></section>
+    <div class="layout">
+      <div class="col-primary">
+        <section id="shards"></section>
 
-    <section class="cluster-panel">
-      <div class="section-heading">Cluster</div>
-      <div class="action-row">
-        <button class="btn btn-primary" onclick="clusterAction('save')">Save</button>
+        <section class="cluster-panel">
+          <div class="section-heading">Cluster</div>
+          <div class="action-row">
+            <button class="btn btn-primary" onclick="clusterAction('save')">Save</button>
+          </div>
+
+          <div class="section-heading">World</div>
+          <div class="action-row">
+            <button class="btn btn-secondary" onclick="clusterRollback()">Rollback</button>
+            <input type="number" id="rollback-days" min="0" max="100"
+                   placeholder="days" class="input-inline">
+          </div>
+          <div class="action-row">
+            <button class="btn btn-secondary" onclick="clusterCommand('c_skip(1)')">Skip Day</button>
+          </div>
+
+          <div class="section-heading">Announce</div>
+          <div class="announce-row">
+            <input type="text" id="announce-input" placeholder="Message to all players"
+                   onkeydown="if(event.key==='Enter')announceAll()">
+            <button class="btn btn-primary" onclick="announceAll()">Announce</button>
+          </div>
+
+          <div class="section-heading section-heading-danger">Danger</div>
+          <div class="action-row">
+            <button class="btn btn-danger" onclick="confirmClusterAction('shutdown')">Shutdown Cluster</button>
+          </div>
+          <div class="action-row">
+            <button class="btn btn-danger" onclick="confirmClusterCommand('c_regenerateworld()', 'regenerate the world')">Regenerate World</button>
+          </div>
+        </section>
+
+        <section class="console">
+          <div class="section-heading">Console</div>
+          <div class="console-input-row">
+            <select id="console-shard"></select>
+            <input type="text" id="console-input" placeholder='c_countprefabs("beefalo")'
+                   onkeydown="if(event.key==='Enter')sendConsole()">
+            <button class="btn btn-primary" onclick="sendConsole()">Send</button>
+          </div>
+          <div id="console-log"></div>
+        </section>
       </div>
 
-      <div class="section-heading">World</div>
-      <div class="action-row">
-        <button class="btn btn-secondary" onclick="clusterRollback()">Rollback</button>
-        <input type="number" id="rollback-days" min="0" max="100"
-               placeholder="days" class="input-inline">
+      <div class="col-logs">
+        <section class="log-viewer">
+          <div class="log-viewer-header">
+            <div class="section-heading">Server Logs</div>
+            <div class="log-controls">
+              <select id="log-shard" onchange="switchLogShard()"></select>
+              <label class="toggle-label">
+                <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
+              </label>
+            </div>
+          </div>
+          <div id="log-output"></div>
+        </section>
       </div>
-      <div class="action-row">
-        <button class="btn btn-secondary" onclick="clusterCommand('c_skip(1)')">Skip Day</button>
-      </div>
-
-      <div class="section-heading">Announce</div>
-      <div class="announce-row">
-        <input type="text" id="announce-input" placeholder="Message to all players"
-               onkeydown="if(event.key==='Enter')announceAll()">
-        <button class="btn btn-primary" onclick="announceAll()">Announce</button>
-      </div>
-
-      <div class="section-heading section-heading-danger">Danger</div>
-      <div class="action-row">
-        <button class="btn btn-danger" onclick="confirmClusterAction('shutdown')">Shutdown Cluster</button>
-      </div>
-      <div class="action-row">
-        <button class="btn btn-danger" onclick="confirmClusterCommand('c_regenerateworld()', 'regenerate the world')">Regenerate World</button>
-      </div>
-    </section>
-
-    <section class="log-viewer">
-      <div class="log-viewer-header">
-        <div class="section-heading">Server Logs</div>
-        <div class="log-controls">
-          <select id="log-shard" onchange="switchLogShard()"></select>
-          <label class="toggle-label">
-            <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
-          </label>
-        </div>
-      </div>
-      <div id="log-output"></div>
-    </section>
-
-    <section class="console">
-      <div class="section-heading">Console</div>
-      <div class="console-input-row">
-        <select id="console-shard"></select>
-        <input type="text" id="console-input" placeholder='c_countprefabs("beefalo")'
-               onkeydown="if(event.key==='Enter')sendConsole()">
-        <button class="btn btn-primary" onclick="sendConsole()">Send</button>
-      </div>
-      <div id="console-log"></div>
-    </section>
+    </div>
 
     <div id="toast-container"></div>
   </div>

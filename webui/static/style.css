@@ -27,9 +27,33 @@ body {
 }
 
 #app {
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 1.5rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Stack to single column on narrow viewports */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.col-primary {
+  min-width: 0;
+}
+
+.col-logs {
+  min-width: 0;
+  position: sticky;
+  top: 1.5rem;
 }
 
 header {
@@ -298,7 +322,9 @@ header h1 {
 
 /* Log viewer */
 .log-viewer {
-  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 6rem);
 }
 
 .log-viewer-header {
@@ -349,11 +375,12 @@ header h1 {
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
   font-size: 0.7rem;
   line-height: 1.5;
-  max-height: 300px;
+  flex: 1;
   overflow-y: auto;
   color: #8b949e;
   white-space: pre-wrap;
   word-break: break-all;
+  min-height: 200px;
 }
 
 #log-output .log-line {
