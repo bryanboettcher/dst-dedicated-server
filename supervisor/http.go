@@ -160,7 +160,9 @@ func StartHTTP(addr string, sup *Supervisor) {
 				if !ok {
 					return
 				}
-				io.WriteString(w, "data: "+line+"\n\n")
+				io.WriteString(w, "data: ")
+				io.WriteString(w, line)
+				io.WriteString(w, "\n\n")
 				flusher.Flush()
 			}
 		}

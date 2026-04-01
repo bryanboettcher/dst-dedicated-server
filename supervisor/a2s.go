@@ -95,13 +95,13 @@ func parseA2SInfo(data []byte) (*A2SInfo, error) {
 	}
 	info.Map = mapName
 
-	// Folder (null-terminated string) - skip
-	if _, err := readString(r); err != nil {
+	// Folder (null-terminated string) - skip without allocating
+	if err := skipString(r); err != nil {
 		return nil, fmt.Errorf("read folder: %w", err)
 	}
 
-	// Game name (null-terminated string) - skip
-	if _, err := readString(r); err != nil {
+	// Game name (null-terminated string) - skip without allocating
+	if err := skipString(r); err != nil {
 		return nil, fmt.Errorf("read game: %w", err)
 	}
 
@@ -125,8 +125,9 @@ func parseA2SInfo(data []byte) (*A2SInfo, error) {
 }
 
 // readString reads a null-terminated string from a bytes.Reader.
+// Pre-sizes the buffer to avoid repeated slice growth.
 func readString(r *bytes.Reader) (string, error) {
-	var result []byte
+	result := make([]byte, 0, 64) // A2S strings are bounded, typically < 64 bytes
 	for {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -136,5 +137,18 @@ func readString(r *bytes.Reader) (string, error) {
 			return string(result), nil
 		}
 		result = append(result, b)
+	}
+}
+
+// skipString advances past a null-terminated string without allocating.
+func skipString(r *bytes.Reader) error {
+	for {
+		b, err := r.ReadByte()
+		if err != nil {
+			return err
+		}
+		if b == 0 {
+			return nil
+		}
 	}
 }

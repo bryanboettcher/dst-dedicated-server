@@ -1,7 +1,7 @@
 package main
 
 import (
-	"strings"
+	"bytes"
 	"sync"
 )
 
@@ -27,12 +27,24 @@ func NewLogBuffer(capacity int) *LogBuffer {
 }
 
 // Write implements io.Writer. Splits input on newlines and stores each line.
+// Avoids allocating a full string copy or []string slice — only allocates one
+// string per actual line found.
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
-	text := string(p)
-	for _, line := range strings.Split(text, "\n") {
-		if line == "" {
+	remaining := p
+	for len(remaining) > 0 {
+		i := bytes.IndexByte(remaining, '\n')
+		var seg []byte
+		if i < 0 {
+			seg, remaining = remaining, nil
+		} else {
+			seg, remaining = remaining[:i], remaining[i+1:]
+		}
+		if len(seg) == 0 {
 			continue
 		}
+
+		line := string(seg) // one alloc per actual line
+
 		lb.mu.Lock()
 		lb.lines[lb.pos] = line
 		lb.pos = (lb.pos + 1) % lb.cap
@@ -41,7 +53,6 @@ func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 		}
 		lb.mu.Unlock()
 
-		// Notify subscribers (non-blocking)
 		lb.subMu.RLock()
 		for ch := range lb.subs {
 			select {
