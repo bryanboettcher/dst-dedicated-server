@@ -40,8 +40,17 @@ func main() {
 	var state StateManager
 	var serverStart time.Time
 
+	// Determine game port for A2S probing (default 10999)
+	gamePort := "10999"
+	if p := os.Getenv("DST_GAME_PORT"); p != "" {
+		gamePort = p
+	}
+
+	// Health checker for A2S probing
+	health := NewHealthChecker(gamePort, &state)
+
 	// Start HTTP server immediately so probes work during install
-	go StartHTTP(*httpAddr, &state, &serverStart, clusterName, shardName)
+	go StartHTTP(*httpAddr, &state, &serverStart, clusterName, shardName, health)
 
 	// Phase: prepare
 	state.Set(StatePreparing)
@@ -67,10 +76,10 @@ func main() {
 
 	serverStart = time.Now()
 
-	// For Phase 1, transition to Running immediately after launch.
-	// Phase 2 will gate this on A2S probe response.
-	state.Set(StateRunning)
-	slog.Info("DST server is running")
+	// Start A2S health checking — this will transition from Starting → Running
+	// once the DST server responds to queries.
+	go health.Run()
+	slog.Info("DST server launched, waiting for A2S readiness")
 
 	// Wait for either a signal or the DST process to exit
 	sigCh := make(chan os.Signal, 1)

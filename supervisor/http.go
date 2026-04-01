@@ -9,13 +9,19 @@ import (
 )
 
 type statusResponse struct {
-	State  string `json:"state"`
-	Uptime string `json:"uptime,omitempty"`
+	State      string `json:"state"`
+	Uptime     string `json:"uptime,omitempty"`
+	ServerName string `json:"server_name,omitempty"`
+	Map        string `json:"map,omitempty"`
+	Players    *int   `json:"players,omitempty"`
+	MaxPlayers *int   `json:"max_players,omitempty"`
+	Cluster    string `json:"cluster"`
+	Shard      string `json:"shard"`
 }
 
 // StartHTTP starts the health/management HTTP server.
 // It blocks, so call it in a goroutine.
-func StartHTTP(addr string, state *StateManager, startTime *time.Time, clusterName, shardName string) {
+func StartHTTP(addr string, state *StateManager, startTime *time.Time, clusterName, shardName string, health *HealthChecker) {
 	mux := http.NewServeMux()
 
 	// Liveness: is the supervisor process alive?
@@ -26,10 +32,9 @@ func StartHTTP(addr string, state *StateManager, startTime *time.Time, clusterNa
 	})
 
 	// Readiness: is the DST server accepting connections?
-	// Phase 1: considers RUNNING state sufficient.
-	// Phase 2 will add real A2S probe.
+	// Gated on actual A2S probe response.
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		if state.Get() == StateRunning {
+		if state.Get() == StateRunning && health.Healthy() {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 			return
@@ -54,17 +59,26 @@ func StartHTTP(addr string, state *StateManager, startTime *time.Time, clusterNa
 	// Status: JSON blob for dashboards (Homarr, etc.)
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, r *http.Request) {
 		resp := statusResponse{
-			State: state.Get().String(),
+			State:   state.Get().String(),
+			Cluster: clusterName,
+			Shard:   shardName,
 		}
 		if startTime != nil && !startTime.IsZero() {
 			resp.Uptime = time.Since(*startTime).Truncate(time.Second).String()
+		}
+		if info := health.Info(); info != nil {
+			resp.ServerName = info.Name
+			resp.Map = info.Map
+			players := int(info.Players)
+			maxPlayers := int(info.MaxPlayers)
+			resp.Players = &players
+			resp.MaxPlayers = &maxPlayers
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 	})
 
 	// Prometheus metrics in text exposition format.
-	// No client library needed — gauges are just "name value\n".
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
 		s := state.Get()
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
@@ -81,12 +95,18 @@ func StartHTTP(addr string, state *StateManager, startTime *time.Time, clusterNa
 			fmt.Fprintf(w, "dst_server_state{state=%q} %d\n", candidate.String(), val)
 		}
 
-		// Uptime in seconds (0 if server hasn't started yet)
+		// Uptime in seconds
 		uptime := 0.0
 		if startTime != nil && !startTime.IsZero() && s >= StateStarting {
 			uptime = time.Since(*startTime).Seconds()
 		}
 		fmt.Fprintf(w, "dst_server_uptime_seconds %.1f\n", uptime)
+
+		// Player counts from A2S
+		if info := health.Info(); info != nil {
+			fmt.Fprintf(w, "dst_server_players %d\n", info.Players)
+			fmt.Fprintf(w, "dst_server_max_players %d\n", info.MaxPlayers)
+		}
 
 		// Server info gauge (always 1, carries labels for Prometheus service discovery)
 		fmt.Fprintf(w, "dst_server_info{cluster=%q,shard=%q} 1\n", clusterName, shardName)
