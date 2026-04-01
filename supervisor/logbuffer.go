@@ -6,12 +6,16 @@ import (
 )
 
 // LogBuffer is a thread-safe ring buffer that stores the last N lines.
+// Implements io.Writer — handles partial lines across Write calls.
 type LogBuffer struct {
-	mu    sync.RWMutex
-	lines []string
-	pos   int
-	cap   int
-	full  bool
+	mu      sync.RWMutex
+	lines   []string
+	pos     int
+	size    int
+	wrapped bool
+
+	// Buffered partial line (no trailing newline yet)
+	partial []byte
 
 	// Subscribers for live streaming
 	subMu sync.RWMutex
@@ -21,47 +25,66 @@ type LogBuffer struct {
 func NewLogBuffer(capacity int) *LogBuffer {
 	return &LogBuffer{
 		lines: make([]string, capacity),
-		cap:   capacity,
+		size:  capacity,
 		subs:  make(map[chan string]struct{}),
 	}
 }
 
-// Write implements io.Writer. Splits input on newlines and stores each line.
-// Avoids allocating a full string copy or []string slice — only allocates one
-// string per actual line found.
+// Write implements io.Writer. Buffers partial lines across calls and only
+// stores complete lines (terminated by \n) into the ring buffer.
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
+	lb.mu.Lock()
+
+	var completed []string
+
 	remaining := p
 	for len(remaining) > 0 {
 		i := bytes.IndexByte(remaining, '\n')
-		var seg []byte
 		if i < 0 {
-			seg, remaining = remaining, nil
-		} else {
-			seg, remaining = remaining[:i], remaining[i+1:]
+			// No newline — accumulate into partial buffer
+			lb.partial = append(lb.partial, remaining...)
+			break
 		}
-		if len(seg) == 0 {
+
+		// Found a newline — complete the line
+		var line string
+		if len(lb.partial) > 0 {
+			lb.partial = append(lb.partial, remaining[:i]...)
+			line = string(lb.partial)
+			lb.partial = lb.partial[:0] // reset without deallocating
+		} else {
+			line = string(remaining[:i])
+		}
+		remaining = remaining[i+1:]
+
+		if line == "" {
 			continue
 		}
 
-		line := string(seg) // one alloc per actual line
-
-		lb.mu.Lock()
 		lb.lines[lb.pos] = line
-		lb.pos = (lb.pos + 1) % lb.cap
+		lb.pos = (lb.pos + 1) % lb.size
 		if lb.pos == 0 {
-			lb.full = true
+			lb.wrapped = true
 		}
-		lb.mu.Unlock()
+		completed = append(completed, line)
+	}
 
+	lb.mu.Unlock()
+
+	// Fan out completed lines to subscribers outside the buffer lock
+	if len(completed) > 0 {
 		lb.subMu.RLock()
-		for ch := range lb.subs {
-			select {
-			case ch <- line:
-			default:
+		for _, line := range completed {
+			for ch := range lb.subs {
+				select {
+				case ch <- line:
+				default:
+				}
 			}
 		}
 		lb.subMu.RUnlock()
 	}
+
 	return len(p), nil
 }
 
@@ -71,8 +94,8 @@ func (lb *LogBuffer) Last(n int) []string {
 	defer lb.mu.RUnlock()
 
 	total := lb.pos
-	if lb.full {
-		total = lb.cap
+	if lb.wrapped {
+		total = lb.size
 	}
 	if n > total {
 		n = total
@@ -84,10 +107,10 @@ func (lb *LogBuffer) Last(n int) []string {
 	result := make([]string, n)
 	start := lb.pos - n
 	if start < 0 {
-		start += lb.cap
+		start += lb.size
 	}
 	for i := 0; i < n; i++ {
-		result[i] = lb.lines[(start+i)%lb.cap]
+		result[i] = lb.lines[(start+i)%lb.size]
 	}
 	return result
 }
