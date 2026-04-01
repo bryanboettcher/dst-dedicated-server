@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DST Server</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Don't Starve Together</h1>
+      <div id="connection-status" class="badge badge-connecting">connecting</div>
+    </header>
+
+    <section class="status-grid">
+      <div class="card">
+        <div class="card-label">State</div>
+        <div class="card-value" id="state">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Players</div>
+        <div class="card-value" id="players">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Server</div>
+        <div class="card-value small" id="server-name">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Map</div>
+        <div class="card-value small" id="map">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Shard</div>
+        <div class="card-value small" id="shard">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Uptime</div>
+        <div class="card-value small" id="uptime">—</div>
+      </div>
+    </section>
+
+    <section class="actions">
+      <h2>Actions</h2>
+      <div class="button-row">
+        <button class="btn btn-primary" onclick="apiAction('save')">Save</button>
+        <button class="btn btn-warning" onclick="apiAction('restart')">Restart</button>
+        <button class="btn btn-danger" onclick="confirmAction('shutdown')">Shutdown</button>
+      </div>
+      <div class="button-row">
+        <button class="btn btn-secondary" onclick="rollback()">Rollback</button>
+        <input type="number" id="rollback-days" min="0" max="100" placeholder="days (optional)" class="input-inline">
+      </div>
+    </section>
+
+    <section class="console">
+      <h2>Console</h2>
+      <div class="console-input-row">
+        <input type="text" id="console-input" placeholder="c_announce(&quot;hello&quot;)"
+               onkeydown="if(event.key==='Enter')sendConsole()">
+        <button class="btn btn-primary" onclick="sendConsole()">Send</button>
+      </div>
+      <div id="console-log"></div>
+    </section>
+
+    <div id="toast-container"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
