@@ -14,6 +14,58 @@ import (
 	"time"
 )
 
+type mockLogBuffer struct {
+	mu    sync.RWMutex
+	lines []string
+	subMu sync.RWMutex
+	subs  map[chan string]struct{}
+}
+
+func newMockLogBuffer() *mockLogBuffer {
+	return &mockLogBuffer{subs: make(map[chan string]struct{})}
+}
+
+func (lb *mockLogBuffer) add(line string) {
+	lb.mu.Lock()
+	lb.lines = append(lb.lines, line)
+	if len(lb.lines) > 500 {
+		lb.lines = lb.lines[len(lb.lines)-500:]
+	}
+	lb.mu.Unlock()
+	lb.subMu.RLock()
+	for ch := range lb.subs {
+		select {
+		case ch <- line:
+		default:
+		}
+	}
+	lb.subMu.RUnlock()
+}
+
+func (lb *mockLogBuffer) last(n int) []string {
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+	if n > len(lb.lines) {
+		n = len(lb.lines)
+	}
+	return append([]string{}, lb.lines[len(lb.lines)-n:]...)
+}
+
+func (lb *mockLogBuffer) subscribe() chan string {
+	ch := make(chan string, 64)
+	lb.subMu.Lock()
+	lb.subs[ch] = struct{}{}
+	lb.subMu.Unlock()
+	return ch
+}
+
+func (lb *mockLogBuffer) unsubscribe(ch chan string) {
+	lb.subMu.Lock()
+	delete(lb.subs, ch)
+	lb.subMu.Unlock()
+	close(ch)
+}
+
 type shardState struct {
 	mu         sync.RWMutex
 	State      string
@@ -25,6 +77,7 @@ type shardState struct {
 	Shard      string
 	IsMaster   bool
 	StartTime  time.Time
+	logs       *mockLogBuffer
 }
 
 func (s *shardState) status() map[string]any {
@@ -58,6 +111,7 @@ func main() {
 			Shard:      "Overworld",
 			IsMaster:   true,
 			StartTime:  time.Now().Add(-2 * time.Hour),
+			logs:       newMockLogBuffer(),
 		},
 		"Caves": {
 			State:      "running",
@@ -69,6 +123,7 @@ func main() {
 			Shard:      "Caves",
 			IsMaster:   false,
 			StartTime:  time.Now().Add(-2 * time.Hour),
+			logs:       newMockLogBuffer(),
 		},
 	}
 
@@ -82,6 +137,37 @@ func main() {
 					s.Players = max(0, min(s.MaxPlayers, s.Players+delta))
 				}
 				s.mu.Unlock()
+			}
+		}
+	}()
+
+	// Generate fake log lines
+	mockMessages := []string{
+		"[Shard] Secondary shard is now connected",
+		"[Workshop] ModIndex: Load sequence complete",
+		"Sim paused",
+		"Sim unpaused",
+		"[Steam] AuthenticateUserTicket success",
+		"New incoming connection from |KU_abc123",
+		"[Join Announcement] Wilson joined the server",
+		"[Leave Announcement] Willow left the server",
+		"Serializing world: session/save",
+		"[200] Account Communication Success",
+		"[Autosave] Saving world...",
+		"[Autosave] Save complete.",
+		"QueryServerComplete noridge",
+		"CURL ERROR: operation timedout (retrying)",
+	}
+	go func() {
+		for range time.Tick(3 * time.Second) {
+			for _, s := range shards {
+				s.mu.RLock()
+				running := s.State == "running"
+				s.mu.RUnlock()
+				if running {
+					msg := mockMessages[rand.Intn(len(mockMessages))]
+					s.logs.add(fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), msg))
+				}
 			}
 		}
 	}()
@@ -142,6 +228,44 @@ func registerShardRoutes(mux *http.ServeMux, prefix string, state *shardState) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		fmt.Fprintf(w, "dst_server_players %d\n", state.Players)
 		fmt.Fprintf(w, "dst_server_max_players %d\n", state.MaxPlayers)
+	})
+
+	mux.HandleFunc("GET "+prefix+"/api/logs", func(w http.ResponseWriter, r *http.Request) {
+		n := 100
+		if v := r.URL.Query().Get("lines"); v != "" {
+			if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+				n = parsed
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(state.logs.last(n))
+	})
+
+	mux.HandleFunc("GET "+prefix+"/api/logs/stream", func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		ch := state.logs.subscribe()
+		defer state.logs.unsubscribe(ch)
+
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case line, ok := <-ch:
+				if !ok {
+					return
+				}
+				fmt.Fprintf(w, "data: %s\n\n", line)
+				flusher.Flush()
+			}
+		}
 	})
 
 	mux.HandleFunc("POST "+prefix+"/api/save", func(w http.ResponseWriter, r *http.Request) {

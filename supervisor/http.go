@@ -122,6 +122,50 @@ func StartHTTP(addr string, sup *Supervisor) {
 		fmt.Fprintf(w, "dst_server_is_master %d\n", isMaster)
 	})
 
+	// --- Logs ---
+
+	// GET /api/logs?lines=N — returns last N lines (default 100) as JSON array.
+	mux.HandleFunc("GET /api/logs", func(w http.ResponseWriter, r *http.Request) {
+		n := 100
+		if v := r.URL.Query().Get("lines"); v != "" {
+			if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+				n = parsed
+			}
+		}
+		lines := sup.Logs.Last(n)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(lines)
+	})
+
+	// GET /api/logs/stream — SSE stream of new log lines as they arrive.
+	mux.HandleFunc("GET /api/logs/stream", func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		ch := sup.Logs.Subscribe()
+		defer sup.Logs.Unsubscribe(ch)
+
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case line, ok := <-ch:
+				if !ok {
+					return
+				}
+				io.WriteString(w, "data: "+line+"\n\n")
+				flusher.Flush()
+			}
+		}
+	})
+
 	// --- Management API ---
 
 	mux.HandleFunc("POST /api/save", sup.requireAuth(func(w http.ResponseWriter, r *http.Request) {

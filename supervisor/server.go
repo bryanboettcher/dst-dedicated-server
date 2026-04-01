@@ -13,6 +13,7 @@ import (
 type Supervisor struct {
 	State       StateManager
 	Health      *HealthChecker
+	Logs        *LogBuffer
 	ServerStart time.Time
 	ClusterName string
 	ShardName   string
@@ -125,7 +126,7 @@ func (s *Supervisor) Restart() error {
 
 	// Relaunch
 	s.State.Set(StateStarting)
-	newDst, err := StartDST(s.env)
+	newDst, err := StartDST(s.env, s.Logs)
 	if err != nil {
 		s.State.Set(StateStopped)
 		return fmt.Errorf("restart failed: %w", err)

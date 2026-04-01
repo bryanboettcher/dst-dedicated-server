@@ -60,8 +60,9 @@ func RunScript(path string, asUser bool, env []string) error {
 }
 
 // StartDST launches the DST dedicated server binary and returns a handle
-// with a stdin pipe for console commands.
-func StartDST(env []string) (*DSTProcess, error) {
+// with a stdin pipe for console commands. If logs is non-nil, stdout/stderr
+// are teed into it (in addition to os.Stdout/os.Stderr).
+func StartDST(env []string, logs *LogBuffer) (*DSTProcess, error) {
 	installRoot := os.Getenv("INSTALL_ROOT")
 	configPath := os.Getenv("CONFIG_PATH")
 	clusterName := os.Getenv("CLUSTER_NAME")
@@ -77,8 +78,13 @@ func StartDST(env []string) (*DSTProcess, error) {
 		"-ugc_directory", installRoot+"/ugc_mods",
 	)
 	cmd.Dir = installRoot + "/bin64"
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if logs != nil {
+		cmd.Stdout = io.MultiWriter(os.Stdout, logs)
+		cmd.Stderr = io.MultiWriter(os.Stderr, logs)
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	cmd.Env = env
 
 	cred, err := getCredential()

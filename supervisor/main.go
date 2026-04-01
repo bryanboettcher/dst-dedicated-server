@@ -54,6 +54,7 @@ func main() {
 		ShardName:       shardName,
 		IsMaster:        shardCfg.IsMaster,
 		AdminToken:      os.Getenv("DST_ADMIN_TOKEN"),
+		Logs:            NewLogBuffer(1000),
 		env:             env,
 		shutdownTimeout: *shutdownTimeout,
 	}
@@ -78,7 +79,7 @@ func main() {
 
 	// Phase: start DST
 	sup.State.Set(StateStarting)
-	dst, err := StartDST(env)
+	dst, err := StartDST(env, sup.Logs)
 	if err != nil {
 		slog.Error("failed to start DST", "error", err)
 		os.Exit(1)
