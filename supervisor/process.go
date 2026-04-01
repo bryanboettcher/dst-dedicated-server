@@ -23,7 +23,6 @@ func getCredential() (*syscall.Credential, error) {
 	uid := uint32(1000)
 	gid := uint32(1000)
 
-	// Look up the dst user's actual UID/GID
 	if u, err := exec.Command("id", "-u", "dst").Output(); err == nil {
 		if v, err := strconv.ParseUint(string(u[:len(u)-1]), 10, 32); err == nil {
 			uid = uint32(v)
@@ -61,7 +60,9 @@ func RunScript(path string, asUser bool, env []string) error {
 
 // StartDST launches the DST dedicated server binary and returns a handle
 // with a stdin pipe for console commands. If logs is non-nil, stdout/stderr
-// are teed into it (in addition to os.Stdout/os.Stderr).
+// are each drained by independent goroutines that write to os.Stdout/os.Stderr
+// first (source of truth for kubectl logs), then to the LogBuffer second.
+// DST writes to OS pipes and is never blocked by our log processing.
 func StartDST(env []string, logs *LogBuffer) (*DSTProcess, error) {
 	installRoot := os.Getenv("INSTALL_ROOT")
 	configPath := os.Getenv("CONFIG_PATH")
@@ -78,13 +79,6 @@ func StartDST(env []string, logs *LogBuffer) (*DSTProcess, error) {
 		"-ugc_directory", installRoot+"/ugc_mods",
 	)
 	cmd.Dir = installRoot + "/bin64"
-	if logs != nil {
-		cmd.Stdout = io.MultiWriter(os.Stdout, logs)
-		cmd.Stderr = io.MultiWriter(os.Stderr, logs)
-	} else {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
 	cmd.Env = env
 
 	cred, err := getCredential()
@@ -98,6 +92,27 @@ func StartDST(env []string, logs *LogBuffer) (*DSTProcess, error) {
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("create stdin pipe: %w", err)
+	}
+
+	if logs != nil {
+		stdoutPipe, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("create stdout pipe: %w", err)
+		}
+		stderrPipe, err := cmd.StderrPipe()
+		if err != nil {
+			return nil, fmt.Errorf("create stderr pipe: %w", err)
+		}
+
+		// Each goroutine drains its pipe independently.
+		// os.Stdout/os.Stderr is written first — it is the source of truth.
+		// LogBuffer write is second — if it's slow, only the goroutine stalls,
+		// not DST. The OS pipe buffer (64KB) absorbs bursts.
+		go drainPipe(stdoutPipe, os.Stdout, logs.PrefixWriter("[stdout] "))
+		go drainPipe(stderrPipe, os.Stderr, logs.PrefixWriter("[stderr] "))
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
 
 	slog.Info("starting DST server",
@@ -122,6 +137,23 @@ func StartDST(env []string, logs *LogBuffer) (*DSTProcess, error) {
 	}()
 
 	return p, nil
+}
+
+// drainPipe reads from src and writes to primary first, then secondary.
+// primary is os.Stdout or os.Stderr (source of truth, must not be blocked).
+// secondary is the LogBuffer's PrefixWriter (best-effort).
+func drainPipe(src io.Reader, primary io.Writer, secondary io.Writer) {
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			primary.Write(buf[:n])
+			secondary.Write(buf[:n])
+		}
+		if err != nil {
+			return
+		}
+	}
 }
 
 // SendCommand writes a console command to the DST server's stdin.
@@ -151,9 +183,7 @@ func ReapZombies() {
 			var status syscall.WaitStatus
 			pid, err := syscall.Wait4(-1, &status, 0, nil)
 			if err != nil {
-				// ECHILD means no children to wait for; sleep briefly and retry
 				if err == syscall.ECHILD {
-					// Block until we get a SIGCHLD by waiting again
 					syscall.Wait4(-1, &status, 0, nil)
 				}
 				_ = pid

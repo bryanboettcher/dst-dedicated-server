@@ -5,17 +5,16 @@ import (
 	"sync"
 )
 
+const maxPartialLen = 16 * 1024 // 16KB — treat hitting this as an implicit newline
+
 // LogBuffer is a thread-safe ring buffer that stores the last N lines.
-// Implements io.Writer — handles partial lines across Write calls.
+// Handles partial lines across Write calls, with a cap on partial line length.
 type LogBuffer struct {
 	mu      sync.RWMutex
 	lines   []string
 	pos     int
 	size    int
 	wrapped bool
-
-	// Buffered partial line (no trailing newline yet)
-	partial []byte
 
 	// Subscribers for live streaming
 	subMu sync.RWMutex
@@ -30,11 +29,26 @@ func NewLogBuffer(capacity int) *LogBuffer {
 	}
 }
 
-// Write implements io.Writer. Buffers partial lines across calls and only
-// stores complete lines (terminated by \n) into the ring buffer.
-func (lb *LogBuffer) Write(p []byte) (n int, err error) {
-	lb.mu.Lock()
+// PrefixWriter returns an io.Writer that prefixes each line with the given
+// tag (e.g. "[stdout]") before writing to the LogBuffer. Each PrefixWriter
+// maintains its own partial line buffer, so stdout and stderr can be
+// processed by independent goroutines without sharing mutable state.
+func (lb *LogBuffer) PrefixWriter(prefix string) *prefixWriter {
+	return &prefixWriter{
+		lb:     lb,
+		prefix: prefix,
+	}
+}
 
+// prefixWriter is a per-stream writer that handles partial line buffering
+// independently, then delegates completed lines to the shared LogBuffer.
+type prefixWriter struct {
+	lb      *LogBuffer
+	prefix  string
+	partial []byte
+}
+
+func (pw *prefixWriter) Write(p []byte) (int, error) {
 	var completed []string
 
 	remaining := p
@@ -42,50 +56,64 @@ func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 		i := bytes.IndexByte(remaining, '\n')
 		if i < 0 {
 			// No newline — accumulate into partial buffer
-			lb.partial = append(lb.partial, remaining...)
+			pw.partial = append(pw.partial, remaining...)
+			// If partial exceeds cap, flush it as a line
+			if len(pw.partial) >= maxPartialLen {
+				completed = append(completed, pw.prefix+string(pw.partial))
+				pw.partial = pw.partial[:0]
+			}
 			break
 		}
 
 		// Found a newline — complete the line
 		var line string
-		if len(lb.partial) > 0 {
-			lb.partial = append(lb.partial, remaining[:i]...)
-			line = string(lb.partial)
-			lb.partial = lb.partial[:0] // reset without deallocating
+		if len(pw.partial) > 0 {
+			pw.partial = append(pw.partial, remaining[:i]...)
+			line = pw.prefix + string(pw.partial)
+			pw.partial = pw.partial[:0]
 		} else {
-			line = string(remaining[:i])
+			seg := remaining[:i]
+			if len(seg) > 0 {
+				line = pw.prefix + string(seg)
+			}
 		}
 		remaining = remaining[i+1:]
 
 		if line == "" {
 			continue
 		}
+		completed = append(completed, line)
+	}
 
+	if len(completed) > 0 {
+		pw.lb.store(completed)
+	}
+
+	return len(p), nil
+}
+
+// store appends completed lines to the ring buffer and fans out to subscribers.
+func (lb *LogBuffer) store(lines []string) {
+	lb.mu.Lock()
+	for _, line := range lines {
 		lb.lines[lb.pos] = line
 		lb.pos = (lb.pos + 1) % lb.size
 		if lb.pos == 0 {
 			lb.wrapped = true
 		}
-		completed = append(completed, line)
 	}
-
 	lb.mu.Unlock()
 
-	// Fan out completed lines to subscribers outside the buffer lock
-	if len(completed) > 0 {
-		lb.subMu.RLock()
-		for _, line := range completed {
-			for ch := range lb.subs {
-				select {
-				case ch <- line:
-				default:
-				}
+	lb.subMu.RLock()
+	for _, line := range lines {
+		for ch := range lb.subs {
+			select {
+			case ch <- line:
+			default:
 			}
 		}
-		lb.subMu.RUnlock()
 	}
-
-	return len(p), nil
+	lb.subMu.RUnlock()
 }
 
 // Last returns the most recent n lines in chronological order.
