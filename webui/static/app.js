@@ -3,8 +3,15 @@
 const $ = (sel) => document.querySelector(sel);
 
 let shardNames = [];
-let masterShard = null; // discovered from status data
+let masterShard = null;
 let evtSource = null;
+let logStream = null; // SSE for log tailing
+let currentLogShard = null;
+
+// SVG icons (inline, no external deps)
+const ICON_START = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+const ICON_STOP = '<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>';
+const ICON_RESTART = '<svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L14 10h7V3l-3.35 3.35z"/></svg>';
 
 // --- Init ---
 
@@ -18,6 +25,7 @@ async function init() {
 
   buildShardUI();
   populateShardSelect();
+  populateLogSelect();
   connectSSE();
 }
 
@@ -30,12 +38,31 @@ function buildShardUI() {
     section.className = 'shard-section';
     section.id = 'shard-' + name;
     section.innerHTML = `
-      <div class="shard-header" onclick="toggleShard('${name}')">
-        <h2>
-          ${name}
-          <span class="master-badge" id="master-badge-${name}" style="display:none">master</span>
-        </h2>
-        <span class="shard-state" id="shard-state-${name}">—</span>
+      <div class="shard-header">
+        <div class="shard-header-left" onclick="toggleShard('${name}')">
+          <h2>
+            ${name}
+            <span class="master-badge" id="master-badge-${name}" style="display:none">master</span>
+          </h2>
+          <span class="shard-state" id="shard-state-${name}">—</span>
+        </div>
+        <div class="shard-controls">
+          <button class="icon-btn icon-btn-start" id="start-btn-${name}"
+                  onclick="event.stopPropagation(); shardAction('${name}', 'restart')"
+                  title="Start shard" disabled>
+            ${ICON_START}
+          </button>
+          <button class="icon-btn icon-btn-restart" id="restart-btn-${name}"
+                  onclick="event.stopPropagation(); shardAction('${name}', 'restart')"
+                  title="Restart shard" disabled>
+            ${ICON_RESTART}
+          </button>
+          <button class="icon-btn icon-btn-stop" id="stop-btn-${name}"
+                  onclick="event.stopPropagation(); confirmShardAction('${name}', 'shutdown')"
+                  title="Stop shard" disabled>
+            ${ICON_STOP}
+          </button>
+        </div>
       </div>
       <div class="shard-body">
         <div class="status-grid">
@@ -54,11 +81,6 @@ function buildShardUI() {
           <div class="card">
             <div class="card-label">Uptime</div>
             <div class="card-value small" id="uptime-${name}">—</div>
-          </div>
-        </div>
-        <div class="shard-actions">
-          <div class="action-row">
-            <button class="btn btn-warning" onclick="shardAction('${name}', 'restart')">Restart Shard</button>
           </div>
         </div>
       </div>
@@ -119,7 +141,7 @@ function updateShard(name, status) {
   const stateEl = $(`#shard-state-${name}`);
   if (!stateEl) return;
 
-  // Discover master from status data
+  // Discover master
   if (status.is_master) {
     masterShard = name;
     const badge = $(`#master-badge-${name}`);
@@ -133,6 +155,19 @@ function updateShard(name, status) {
   stateEl.textContent = state;
   stateEl.className = 'shard-state state-' + state;
 
+  // Update icon button states
+  const startBtn = $(`#start-btn-${name}`);
+  const restartBtn = $(`#restart-btn-${name}`);
+  const stopBtn = $(`#stop-btn-${name}`);
+
+  const isRunning = state === 'running' || state === 'starting';
+  const isStopped = state === 'stopped';
+
+  startBtn.disabled = !isStopped;
+  restartBtn.disabled = !isRunning;
+  stopBtn.disabled = !isRunning;
+
+  // Players
   const players = $(`#players-${name}`);
   if (status.players !== null && status.players !== undefined) {
     players.textContent = status.players + ' / ' + (status.max_players || '?');
@@ -148,9 +183,7 @@ function updateShard(name, status) {
 // --- Cluster actions (routed to master shard) ---
 
 function getMaster() {
-  if (masterShard) return masterShard;
-  // Fallback to first shard if master not yet discovered
-  return shardNames[0];
+  return masterShard || shardNames[0];
 }
 
 async function clusterAction(action) {
@@ -217,7 +250,7 @@ function confirmClusterCommand(cmd, description) {
   }
 }
 
-// --- Announce (sent to all shards) ---
+// --- Announce (all shards) ---
 
 async function announceAll() {
   const input = $('#announce-input');
@@ -255,6 +288,12 @@ async function shardAction(name, action) {
     }
   } catch (err) {
     toast(`[${name}] ${err.message}`, 'err');
+  }
+}
+
+function confirmShardAction(name, action) {
+  if (confirm(`Are you sure you want to ${action} the ${name} shard?`)) {
+    shardAction(name, action);
   }
 }
 
@@ -317,6 +356,77 @@ function toast(msg, type) {
   el.textContent = msg;
   container.appendChild(el);
   setTimeout(() => el.remove(), 4000);
+}
+
+// --- Log viewer ---
+
+function populateLogSelect() {
+  const select = $('#log-shard');
+  select.innerHTML = '';
+  for (const name of shardNames) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  }
+  if (shardNames.length > 0) {
+    switchLogShard();
+  }
+}
+
+async function switchLogShard() {
+  const name = $('#log-shard').value;
+  if (name === currentLogShard) return;
+  currentLogShard = name;
+
+  // Disconnect existing stream
+  if (logStream) {
+    logStream.close();
+    logStream = null;
+  }
+
+  const output = $('#log-output');
+  output.innerHTML = '';
+
+  // Load initial backlog
+  try {
+    const resp = await fetch(`/shard/${name}/api/logs?lines=200`);
+    const lines = await resp.json();
+    if (lines && lines.length) {
+      for (const line of lines) {
+        appendLogLine(line);
+      }
+    }
+  } catch (err) {
+    appendLogLine(`[error loading logs: ${err.message}]`);
+  }
+
+  // Connect live stream
+  logStream = new EventSource(`/shard/${name}/api/logs/stream`);
+  logStream.onmessage = (e) => {
+    appendLogLine(e.data);
+  };
+  logStream.onerror = () => {
+    // Will auto-reconnect via EventSource spec
+  };
+}
+
+function appendLogLine(text) {
+  const output = $('#log-output');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.textContent = text;
+  output.appendChild(line);
+
+  // Cap at 500 lines
+  while (output.children.length > 500) {
+    output.removeChild(output.firstChild);
+  }
+
+  // Auto-scroll if enabled
+  if ($('#log-autoscroll').checked) {
+    output.scrollTop = output.scrollHeight;
+  }
 }
 
 // --- Init ---

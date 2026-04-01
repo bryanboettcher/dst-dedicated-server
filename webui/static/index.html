@@ -15,16 +15,13 @@
 
     <section id="shards"></section>
 
-    <section class="cluster-actions">
-      <h2>Cluster</h2>
+    <section class="cluster-panel">
+      <div class="section-heading">Cluster</div>
       <div class="action-row">
         <button class="btn btn-primary" onclick="clusterAction('save')">Save</button>
       </div>
-      <div class="action-row">
-        <button class="btn btn-danger" onclick="confirmClusterAction('shutdown')">Shutdown</button>
-      </div>
 
-      <h2>World</h2>
+      <div class="section-heading">World</div>
       <div class="action-row">
         <button class="btn btn-secondary" onclick="clusterRollback()">Rollback</button>
         <input type="number" id="rollback-days" min="0" max="100"
@@ -33,20 +30,38 @@
       <div class="action-row">
         <button class="btn btn-secondary" onclick="clusterCommand('c_skip(1)')">Skip Day</button>
       </div>
-      <div class="action-row">
-        <button class="btn btn-danger" onclick="confirmClusterCommand('c_regenerateworld()', 'regenerate the world')">Regenerate World</button>
-      </div>
 
-      <h2>Announce</h2>
+      <div class="section-heading">Announce</div>
       <div class="announce-row">
         <input type="text" id="announce-input" placeholder="Message to all players"
                onkeydown="if(event.key==='Enter')announceAll()">
         <button class="btn btn-primary" onclick="announceAll()">Announce</button>
       </div>
+
+      <div class="section-heading section-heading-danger">Danger</div>
+      <div class="action-row">
+        <button class="btn btn-danger" onclick="confirmClusterAction('shutdown')">Shutdown Cluster</button>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-danger" onclick="confirmClusterCommand('c_regenerateworld()', 'regenerate the world')">Regenerate World</button>
+      </div>
+    </section>
+
+    <section class="log-viewer">
+      <div class="log-viewer-header">
+        <div class="section-heading">Server Logs</div>
+        <div class="log-controls">
+          <select id="log-shard" onchange="switchLogShard()"></select>
+          <label class="toggle-label">
+            <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
+          </label>
+        </div>
+      </div>
+      <div id="log-output"></div>
     </section>
 
     <section class="console">
-      <h2>Console</h2>
+      <div class="section-heading">Console</div>
       <div class="console-input-row">
         <select id="console-shard"></select>
         <input type="text" id="console-input" placeholder='c_countprefabs("beefalo")'

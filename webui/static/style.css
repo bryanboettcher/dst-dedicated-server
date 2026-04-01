@@ -72,31 +72,9 @@ header h1 {
   margin-left: 0.5rem;
 }
 
-/* Cluster actions */
-.cluster-actions {
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  background: var(--surface);
-}
-
-.cluster-actions h2 {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-dim);
-  margin-bottom: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.cluster-actions h2:first-child {
-  margin-top: 0;
-}
-
 /* Shard sections */
 .shard-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -105,12 +83,19 @@ header h1 {
 .shard-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  gap: 0.75rem;
+}
+
+.shard-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   cursor: pointer;
-  user-select: none;
+  flex: 1;
+  min-width: 0;
 }
 
 .shard-header h2 {
@@ -119,13 +104,60 @@ header h1 {
   letter-spacing: normal;
   color: var(--text);
   margin: 0;
+  white-space: nowrap;
 }
 
 .shard-header .shard-state {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
 }
+
+.shard-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+/* Icon buttons in shard titlebar */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, transform 0.1s;
+  padding: 0;
+}
+
+.icon-btn:hover { opacity: 0.8; }
+.icon-btn:active { transform: scale(0.92); }
+.icon-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+.icon-btn:disabled:hover { opacity: 0.2; }
+
+.icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn-start {
+  background: var(--success);
+}
+.icon-btn-start svg { fill: #fff; }
+
+.icon-btn-restart {
+  background: var(--warning);
+}
+.icon-btn-restart svg { fill: #000; }
+
+.icon-btn-stop {
+  background: var(--danger);
+}
+.icon-btn-stop svg { fill: #fff; }
 
 .shard-body {
   padding: 1rem;
@@ -136,7 +168,6 @@ header h1 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.75rem;
-  margin-bottom: 1rem;
 }
 
 .card {
@@ -174,13 +205,32 @@ header h1 {
 .state-stopped     { color: var(--danger); }
 .state-unreachable { color: var(--danger); }
 
-/* Actions */
-.shard-actions h3 {
-  font-size: 0.75rem;
+/* Cluster actions panel */
+.cluster-panel {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--surface);
+}
+
+.cluster-panel .section-heading {
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-dim);
   margin-bottom: 0.5rem;
+  margin-top: 1rem;
+}
+
+.cluster-panel .section-heading:first-child {
+  margin-top: 0;
+}
+
+.section-heading-danger {
+  color: var(--danger) !important;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .action-row {
@@ -226,19 +276,6 @@ header h1 {
   border-color: var(--primary);
 }
 
-/* Global actions */
-.global-actions {
-  margin-bottom: 1.5rem;
-}
-
-.global-actions h2 {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-dim);
-  margin-bottom: 0.75rem;
-}
-
 .announce-row {
   display: flex;
   gap: 0.5rem;
@@ -247,11 +284,11 @@ header h1 {
 .announce-row input {
   flex: 1;
   padding: 0.5rem 0.75rem;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .announce-row input:focus {
@@ -259,13 +296,77 @@ header h1 {
   border-color: var(--primary);
 }
 
+/* Log viewer */
+.log-viewer {
+  margin-bottom: 1.5rem;
+}
+
+.log-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.log-viewer-header .section-heading {
+  margin: 0;
+}
+
+.log-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.log-controls select {
+  padding: 0.35rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.toggle-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label input {
+  accent-color: var(--primary);
+}
+
+#log-output {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+  color: #8b949e;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+#log-output .log-line {
+  padding: 0.05rem 0;
+}
+
 /* Console */
 .console {
   margin-bottom: 1.5rem;
 }
 
-.console h2 {
-  font-size: 0.85rem;
+.console .section-heading {
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-dim);
