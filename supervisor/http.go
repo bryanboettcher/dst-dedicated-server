@@ -12,15 +12,17 @@ import (
 )
 
 type statusResponse struct {
-	State      string `json:"state"`
-	Uptime     string `json:"uptime,omitempty"`
-	ServerName string `json:"server_name,omitempty"`
-	Map        string `json:"map,omitempty"`
-	Players    *int   `json:"players,omitempty"`
-	MaxPlayers *int   `json:"max_players,omitempty"`
-	Cluster    string `json:"cluster"`
-	Shard      string `json:"shard"`
-	IsMaster   bool   `json:"is_master"`
+	State       string   `json:"state"`
+	Uptime      string   `json:"uptime,omitempty"`
+	ServerName  string   `json:"server_name,omitempty"`
+	Map         string   `json:"map,omitempty"`
+	PlayerCount int      `json:"player_count"`
+	Players     []Player `json:"players,omitempty"`
+	Cluster     string   `json:"cluster"`
+	Shard       string   `json:"shard"`
+	IsMaster    bool     `json:"is_master"`
+	GamePort    string   `json:"game_port,omitempty"`
+	Region      string   `json:"region,omitempty"`
 }
 
 type apiResponse struct {
@@ -70,18 +72,20 @@ func StartHTTP(addr string, sup *Supervisor) {
 			Cluster:  sup.ClusterName,
 			Shard:    sup.ShardName,
 			IsMaster: sup.IsMaster,
+			GamePort: sup.RuntimeField("game_port"),
+			Region:   sup.RuntimeField("region"),
 		}
 		if !sup.ServerStart.IsZero() {
 			resp.Uptime = time.Since(sup.ServerStart).Truncate(time.Second).String()
 		}
+		// A2S enrichment (server name, map) if available
 		if info := sup.Health.Info(); info != nil {
 			resp.ServerName = info.Name
 			resp.Map = info.Map
-			players := int(info.Players)
-			maxPlayers := int(info.MaxPlayers)
-			resp.Players = &players
-			resp.MaxPlayers = &maxPlayers
 		}
+		// Player data from tracker (join/leave events + c_listplayers() polls)
+		resp.PlayerCount = sup.Players.Count()
+		resp.Players = sup.Players.List()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 	})
@@ -109,10 +113,7 @@ func StartHTTP(addr string, sup *Supervisor) {
 		}
 		fmt.Fprintf(w, "dst_server_uptime_seconds %.1f\n", uptime)
 
-		if info := sup.Health.Info(); info != nil {
-			fmt.Fprintf(w, "dst_server_players %d\n", info.Players)
-			fmt.Fprintf(w, "dst_server_max_players %d\n", info.MaxPlayers)
-		}
+		fmt.Fprintf(w, "dst_server_players %d\n", sup.Players.Count())
 
 		isMaster := 0
 		if sup.IsMaster {

@@ -168,11 +168,14 @@ function updateShard(name, status) {
   stopBtn.disabled = !isRunning;
 
   // Players
-  const players = $(`#players-${name}`);
-  if (status.players !== null && status.players !== undefined) {
-    players.textContent = status.players + ' / ' + (status.max_players || '?');
+  const playersEl = $(`#players-${name}`);
+  if (status.player_count !== undefined) {
+    const names = (status.players || []).map(p => p.name).join(', ');
+    playersEl.textContent = status.player_count.toString();
+    playersEl.title = names || 'no players';
   } else {
-    players.textContent = '—';
+    playersEl.textContent = '—';
+    playersEl.title = '';
   }
 
   $(`#server-name-${name}`).textContent = status.server_name || '—';

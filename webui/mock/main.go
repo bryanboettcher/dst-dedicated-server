@@ -83,15 +83,24 @@ type shardState struct {
 func (s *shardState) status() map[string]any {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	// Build mock player list
+	mockPlayers := make([]map[string]string, 0, s.Players)
+	names := []string{"Wilson", "Willow", "Wolfgang", "Wendy", "WX-78", "Wickerbottom"}
+	for i := 0; i < s.Players && i < len(names); i++ {
+		mockPlayers = append(mockPlayers, map[string]string{
+			"klei_id": fmt.Sprintf("KU_%06d", i+1),
+			"name":    names[i],
+		})
+	}
 	m := map[string]any{
-		"state":       s.State,
-		"cluster":     s.Cluster,
-		"shard":       s.Shard,
-		"server_name": s.Name,
-		"map":         s.Map,
-		"players":     s.Players,
-		"max_players": s.MaxPlayers,
-		"is_master":   s.IsMaster,
+		"state":        s.State,
+		"cluster":      s.Cluster,
+		"shard":        s.Shard,
+		"server_name":  s.Name,
+		"map":          s.Map,
+		"player_count": s.Players,
+		"players":      mockPlayers,
+		"is_master":    s.IsMaster,
 	}
 	if !s.StartTime.IsZero() {
 		m["uptime"] = time.Since(s.StartTime).Truncate(time.Second).String()
