@@ -50,9 +50,9 @@ func (o *Observer) registerPatterns() {
 		slog.Info("observer: discovered auth port", "port", m[1])
 	})
 
-	// Server ready signals — these transition Starting → Running if A2S
-	// hasn't done so already. "Server registered via geo DNS" is DST's own
-	// declaration that it's ready to accept players.
+	// Server ready signals — these transition Starting → Running.
+	// Master shards: "Server registered via geo DNS" is DST's declaration
+	// that the server is in the lobby and ready for players.
 	o.addOnce(`Server registered via geo DNS in (.+)`, func(m []string) {
 		region := strings.TrimSpace(m[1])
 		slog.Info("observer: server registered", "region", region)
@@ -63,8 +63,24 @@ func (o *Observer) registerPatterns() {
 		}
 	})
 
+	// Secondary shards: never emit geo DNS. Their readiness signal is
+	// "[Shard] secondary shard LUA is now ready!" which fires after
+	// connecting to the master and completing world load.
+	o.addOnce(`\[Shard\] secondary shard LUA is now ready`, func(m []string) {
+		slog.Info("observer: secondary shard ready")
+		if o.sup.State.Get() == StateStarting {
+			o.sup.State.Set(StateRunning)
+			slog.Info("observer: server ready (secondary shard LUA ready)")
+		}
+	})
+
 	o.addOnce(`Online Server Started on port:\s*(\d+)`, func(m []string) {
 		slog.Info("observer: server is online", "port", m[1])
+	})
+
+	// Shard connection status — informational, surfaces in logs
+	o.add(`\[Shard\] Connection to master failed`, func(m []string) {
+		slog.Warn("observer: shard connection to master failed (retrying)")
 	})
 
 	// Player join/leave — immediate tracker updates.

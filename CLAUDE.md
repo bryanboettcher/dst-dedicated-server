@@ -53,7 +53,11 @@ Management endpoints are token-gated via `DST_ADMIN_TOKEN` env var if set.
 
 `PREPARING` → `INSTALLING` → `STARTING` → `RUNNING` → `STOPPING` → `STOPPED`
 
-Readiness transition (Starting → Running) is driven by the observer watching DST stdout for "Server registered via geo DNS". Player tracking uses `c_listplayers()` polling + join/leave event parsing.
+Readiness transition (Starting → Running) is driven by the observer watching DST stdout:
+- **Master shards:** "Server registered via geo DNS" 
+- **Secondary shards:** "[Shard] secondary shard LUA is now ready!" (fires after connecting to master + world load)
+
+Player tracking uses `c_listplayers()` polling + join/leave event parsing.
 
 ## WebUI (port 8080)
 
