@@ -8,8 +8,9 @@ RUN CGO_ENABLED=0 go build -o dst-supervisor .
 FROM steamcmd/steamcmd:debian
 
 LABEL org.opencontainers.image.title="DST Server"
-LABEL org.opencontainers.image.description="Don't Starve Together dedicated server"
+LABEL org.opencontainers.image.description="Don't Starve Together dedicated server with built-in process supervisor and health endpoints"
 LABEL org.opencontainers.image.source="https://github.com/bryanboettcher/dst-dedicated-server"
+LABEL org.opencontainers.image.documentation="https://github.com/bryanboettcher/dst-dedicated-server#readme"
 LABEL org.opencontainers.image.authors="Bryan Boettcher <bryan.boettcher@gmail.com>"
 
 COPY --from=supervisor /build/dst-supervisor /usr/local/bin/dst-supervisor

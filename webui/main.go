@@ -28,7 +28,7 @@ type shard struct {
 }
 
 func main() {
-	listenAddr := flag.String("listen", ":3002", "HTTP listen address for the web UI")
+	listenAddr := flag.String("listen", ":8080", "HTTP listen address for the web UI")
 	backendsFlag := flag.String("backends", "", "Comma-separated shard backends: name=url,name=url")
 	flag.Parse()
 

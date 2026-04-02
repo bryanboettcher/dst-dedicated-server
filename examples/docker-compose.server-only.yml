@@ -1,0 +1,45 @@
+# 2-shard DST server without the web UI.
+# Usage: docker compose -f examples/docker-compose.server-only.yml up -d
+
+services:
+  overworld:
+    image: ghcr.io/bryanboettcher/dst-dedicated-server:latest
+    hostname: overworld
+    ports:
+      - "10999:10999/udp"
+    volumes:
+      - ../cluster_config:/dst/config
+      - ../volumes/mods:/dst/mods
+      - server_overworld:/opt/dst_server
+    environment:
+      - SHARD_NAME=Overworld
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  caves:
+    image: ghcr.io/bryanboettcher/dst-dedicated-server:latest
+    hostname: caves
+    ports:
+      - "10998:10998/udp"
+    volumes:
+      - ../cluster_config:/dst/config
+      - ../volumes/mods:/dst/mods
+      - server_caves:/opt/dst_server
+    environment:
+      - SHARD_NAME=Caves
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+volumes:
+  server_overworld:
+  server_caves:
