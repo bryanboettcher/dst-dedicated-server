@@ -43,8 +43,12 @@ func StartHTTP(addr string, sup *Supervisor) {
 		w.Write([]byte("ok"))
 	})
 
+	// Readiness: is the DST server ready for players?
+	// Gated on StateRunning (set by observer when DST announces readiness).
+	// A2S health is NOT required — DST doesn't respond to A2S queries,
+	// so Healthy() would never be true and /readyz would be stuck at 503.
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		if sup.State.Get() == StateRunning && sup.Health.Healthy() {
+		if sup.State.Get() == StateRunning {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 			return
