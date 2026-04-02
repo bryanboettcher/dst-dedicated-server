@@ -14,16 +14,39 @@ type Supervisor struct {
 	State       StateManager
 	Health      *HealthChecker
 	Logs        *LogBuffer
+	Observer    *Observer
+	Players     *PlayerTracker
 	ServerStart time.Time
 	ClusterName string
 	ShardName   string
 	IsMaster    bool
 	AdminToken  string
 
+	// Runtime fields discovered by the Observer from DST stdout
+	runtimeMu sync.RWMutex
+	runtime   map[string]string
+
 	mu              sync.Mutex
 	dst             *DSTProcess
 	env             []string
 	shutdownTimeout time.Duration
+}
+
+// SetRuntimeField stores a value discovered from DST's stdout.
+func (s *Supervisor) SetRuntimeField(key, value string) {
+	s.runtimeMu.Lock()
+	if s.runtime == nil {
+		s.runtime = make(map[string]string)
+	}
+	s.runtime[key] = value
+	s.runtimeMu.Unlock()
+}
+
+// RuntimeField returns a discovered runtime value, or empty string.
+func (s *Supervisor) RuntimeField(key string) string {
+	s.runtimeMu.RLock()
+	defer s.runtimeMu.RUnlock()
+	return s.runtime[key]
 }
 
 // SetProcess sets the managed DST process (called after launch).
@@ -124,8 +147,15 @@ func (s *Supervisor) Restart() error {
 		<-dst.Wait()
 	}
 
-	// Relaunch
+	// Relaunch — reset observer and player tracker for the new process
 	s.State.Set(StateStarting)
+	if s.Observer != nil {
+		s.Observer.Reset()
+	}
+	if s.Players != nil {
+		s.Players.Clear()
+	}
+
 	newDst, err := StartDST(s.env, s.Logs)
 	if err != nil {
 		s.State.Set(StateStopped)
@@ -137,7 +167,7 @@ func (s *Supervisor) Restart() error {
 	s.mu.Unlock()
 
 	s.ServerStart = time.Now()
-	slog.Info("restart: DST server relaunched, waiting for A2S readiness")
+	slog.Info("restart: DST server relaunched, waiting for observer + A2S readiness")
 	return nil
 }
 

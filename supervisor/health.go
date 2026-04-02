@@ -7,62 +7,103 @@ import (
 )
 
 // HealthChecker periodically probes the DST server via A2S and updates
-// the state machine and cached server info.
+// the state machine and cached server info. Waits for the query port to
+// be discovered by the Observer before starting to probe.
 type HealthChecker struct {
-	addr     string
 	state    *StateManager
 	interval time.Duration
 	timeout  time.Duration
 
+	portCh chan string // receives the query port from the observer
+
 	mu       sync.RWMutex
+	addr     string
 	lastInfo *A2SInfo
 	lastErr  error
 	lastPoll time.Time
 }
 
-func NewHealthChecker(gamePort string, state *StateManager) *HealthChecker {
+func NewHealthChecker(state *StateManager) *HealthChecker {
 	return &HealthChecker{
-		addr:     "127.0.0.1:" + gamePort,
 		state:    state,
 		interval: 10 * time.Second,
 		timeout:  3 * time.Second,
+		portCh:   make(chan string, 1),
 	}
 }
 
-// Run starts the probe loop. It blocks, so call it in a goroutine.
-// It only probes while the server is in Starting or Running state.
+// SetQueryPort is called by the Observer when it discovers the
+// SteamMasterServerPort from DST's stdout.
+func (hc *HealthChecker) SetQueryPort(port string) {
+	// Non-blocking send — if a port was already set (restart case),
+	// drain and replace.
+	select {
+	case <-hc.portCh:
+	default:
+	}
+	hc.portCh <- port
+}
+
+// Run starts the probe loop. It blocks until the query port is discovered,
+// then probes periodically. Call in a goroutine.
 func (hc *HealthChecker) Run() {
+	// Wait for the observer to discover the query port
+	port := <-hc.portCh
+	addr := "127.0.0.1:" + port
+
+	hc.mu.Lock()
+	hc.addr = addr
+	hc.mu.Unlock()
+
+	slog.Info("health checker starting", "addr", addr)
+
 	ticker := time.NewTicker(hc.interval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		s := hc.state.Get()
-		if s != StateStarting && s != StateRunning {
-			continue
+	// Probe immediately, then on tick
+	hc.probe(addr)
+	for {
+		select {
+		case newPort := <-hc.portCh:
+			// Port changed (restart). Update and probe immediately.
+			addr = "127.0.0.1:" + newPort
+			hc.mu.Lock()
+			hc.addr = addr
+			hc.mu.Unlock()
+			slog.Info("health checker port updated", "addr", addr)
+			hc.probe(addr)
+		case <-ticker.C:
+			hc.probe(addr)
 		}
+	}
+}
 
-		info, err := QueryA2SInfo(hc.addr, hc.timeout)
-		hc.mu.Lock()
-		hc.lastPoll = time.Now()
-		hc.lastInfo = info
-		hc.lastErr = err
-		hc.mu.Unlock()
+func (hc *HealthChecker) probe(addr string) {
+	s := hc.state.Get()
+	if s != StateStarting && s != StateRunning {
+		return
+	}
 
-		if err != nil {
-			slog.Debug("A2S probe failed", "error", err)
-			// Don't downgrade from Running to Starting — transient UDP loss is normal.
-			// Kubernetes liveness probe handles real crashes.
-			continue
-		}
+	info, err := QueryA2SInfo(addr, hc.timeout)
+	hc.mu.Lock()
+	hc.lastPoll = time.Now()
+	hc.lastInfo = info
+	hc.lastErr = err
+	hc.mu.Unlock()
 
-		if s == StateStarting {
-			hc.state.Set(StateRunning)
-			slog.Info("DST server is ready (A2S responding)",
-				"name", info.Name,
-				"players", info.Players,
-				"max_players", info.MaxPlayers,
-			)
-		}
+	if err != nil {
+		slog.Debug("A2S probe failed", "addr", addr, "error", err)
+		return
+	}
+
+	if s == StateStarting {
+		hc.state.Set(StateRunning)
+		slog.Info("DST server is ready (A2S responding)",
+			"addr", addr,
+			"name", info.Name,
+			"players", info.Players,
+			"max_players", info.MaxPlayers,
+		)
 	}
 }
 

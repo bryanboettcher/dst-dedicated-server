@@ -33,20 +33,10 @@ func main() {
 
 	env := os.Environ()
 
-	// Start zombie reaper (we are PID 1)
-	ReapZombies()
-
-	// Parse shard config (server.ini) for is_master and server_port
+	// Parse shard config for is_master
 	shardRoot := os.Getenv("SHARD_ROOT")
 	shardCfg := ParseShardConfig(shardRoot + "/server.ini")
-
-	// Allow env override for game port
-	gamePort := shardCfg.Port
-	if p := os.Getenv("DST_GAME_PORT"); p != "" {
-		gamePort = p
-	}
-
-	slog.Info("shard config", "is_master", shardCfg.IsMaster, "game_port", gamePort)
+	slog.Info("shard config", "is_master", shardCfg.IsMaster)
 
 	// Build the supervisor
 	sup := &Supervisor{
@@ -55,10 +45,18 @@ func main() {
 		IsMaster:        shardCfg.IsMaster,
 		AdminToken:      os.Getenv("DST_ADMIN_TOKEN"),
 		Logs:            NewLogBuffer(1000),
+		Players:         NewPlayerTracker(),
 		env:             env,
 		shutdownTimeout: *shutdownTimeout,
 	}
-	sup.Health = NewHealthChecker(gamePort, &sup.State)
+
+	// Health checker waits for the observer to discover the query port
+	sup.Health = NewHealthChecker(&sup.State)
+	go sup.Health.Run()
+
+	// Observer watches DST stdout for port announcements, player events, etc.
+	sup.Observer = NewObserver(sup)
+	go sup.Observer.Run(sup.Logs)
 
 	// Start HTTP server immediately so probes work during install
 	go StartHTTP(*httpAddr, sup)
@@ -87,10 +85,7 @@ func main() {
 
 	sup.SetProcess(dst)
 	sup.ServerStart = time.Now()
-
-	// Start A2S health checking — transitions Starting → Running on first response
-	go sup.Health.Run()
-	slog.Info("DST server launched, waiting for A2S readiness")
+	slog.Info("DST server launched, waiting for observer + A2S readiness")
 
 	// Wait for either a signal or the DST process to exit
 	sigCh := make(chan os.Signal, 1)

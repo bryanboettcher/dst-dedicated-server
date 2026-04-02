@@ -52,6 +52,8 @@ func RunScript(path string, asUser bool, env []string) error {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Credential: cred,
 		}
+		// Override HOME so child processes (steamcmd) write to the right place
+		cmd.Env = overrideEnv(cmd.Env, "HOME", os.Getenv("USER_ROOT"))
 	}
 
 	slog.Info("running script", "path", path, "as_user", asUser)
@@ -88,6 +90,7 @@ func StartDST(env []string, logs *LogBuffer) (*DSTProcess, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: cred,
 	}
+	cmd.Env = overrideEnv(cmd.Env, "HOME", os.Getenv("USER_ROOT"))
 
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
@@ -156,6 +159,18 @@ func drainPipe(src io.Reader, primary io.Writer, secondary io.Writer) {
 	}
 }
 
+// overrideEnv replaces or appends a KEY=VALUE in an env slice.
+func overrideEnv(env []string, key, value string) []string {
+	prefix := key + "="
+	for i, e := range env {
+		if len(e) > len(prefix) && e[:len(prefix)] == prefix {
+			env[i] = prefix + value
+			return env
+		}
+	}
+	return append(env, prefix+value)
+}
+
 // SendCommand writes a console command to the DST server's stdin.
 func (p *DSTProcess) SendCommand(cmd string) error {
 	_, err := fmt.Fprintln(p.stdinPipe, cmd)
@@ -175,19 +190,12 @@ func (p *DSTProcess) Wait() <-chan error {
 	return p.done
 }
 
-// ReapZombies starts a goroutine that continuously reaps orphaned child processes.
-// Required when running as PID 1.
-func ReapZombies() {
-	go func() {
-		for {
-			var status syscall.WaitStatus
-			pid, err := syscall.Wait4(-1, &status, 0, nil)
-			if err != nil {
-				if err == syscall.ECHILD {
-					syscall.Wait4(-1, &status, 0, nil)
-				}
-				_ = pid
-			}
-		}
-	}()
-}
+// ReapZombies is intentionally a no-op. As PID 1, orphaned processes are
+// reparented to us and would become zombies. However, in this container
+// the only child processes are shell scripts (which we Wait on directly)
+// and the DST binary (which we Wait on via cmd.Wait). DST itself does not
+// fork child processes. A blanket Wait4(-1) races with Go's internal
+// waitid and steals exit statuses from cmd.Wait(), causing "no child
+// processes" errors. Since we have no orphan-producing workloads, we
+// skip the reaper entirely.
+func ReapZombies() {}
