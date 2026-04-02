@@ -12,8 +12,9 @@ import (
 // Observer watches DST's stdout (via LogBuffer subscription) for known
 // patterns and feeds discovered runtime state into the Supervisor.
 type Observer struct {
-	sup      *Supervisor
-	patterns []pattern
+	sup              *Supervisor
+	patterns         []pattern
+	playerPollInterval time.Duration
 }
 
 type pattern struct {
@@ -23,8 +24,8 @@ type pattern struct {
 	fired   bool
 }
 
-func NewObserver(sup *Supervisor) *Observer {
-	o := &Observer{sup: sup}
+func NewObserver(sup *Supervisor, playerPollInterval time.Duration) *Observer {
+	o := &Observer{sup: sup, playerPollInterval: playerPollInterval}
 	o.registerPatterns()
 	return o
 }
@@ -157,7 +158,7 @@ func (o *Observer) Run(logs *LogBuffer) {
 
 // pollPlayers periodically sends c_listplayers() and prunes stale entries.
 func (o *Observer) pollPlayers() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(o.playerPollInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {

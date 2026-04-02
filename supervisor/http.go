@@ -171,6 +171,14 @@ func StartHTTP(addr string, sup *Supervisor) {
 
 	// --- Management API ---
 
+	mux.HandleFunc("POST /api/players/sync", sup.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if err := sup.SendCommand("c_listplayers()"); err != nil {
+			writeJSON(w, http.StatusInternalServerError, apiResponse{Error: err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, apiResponse{OK: true, Message: "player sync triggered"})
+	}))
+
 	mux.HandleFunc("POST /api/save", sup.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		if err := sup.Save(); err != nil {
 			writeJSON(w, http.StatusInternalServerError, apiResponse{Error: err.Error()})

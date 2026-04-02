@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -33,6 +34,14 @@ func main() {
 
 	env := os.Environ()
 
+	// Tunable durations from environment
+	healthInterval := envDuration("DST_HEALTH_INTERVAL", 10*time.Second)
+	healthTimeout := envDuration("DST_HEALTH_TIMEOUT", 3*time.Second)
+	playerPollInterval := envDuration("DST_PLAYER_POLL_INTERVAL", 5*time.Minute)
+	playerStaleAge := envDuration("DST_PLAYER_STALE", 12*time.Minute)
+	saveDelay := envDuration("DST_SAVE_DELAY", 5*time.Second)
+	logBufferSize := envInt("DST_LOG_BUFFER_SIZE", 1000)
+
 	// Parse shard config for is_master
 	shardRoot := os.Getenv("SHARD_ROOT")
 	shardCfg := ParseShardConfig(shardRoot + "/server.ini")
@@ -44,18 +53,19 @@ func main() {
 		ShardName:       shardName,
 		IsMaster:        shardCfg.IsMaster,
 		AdminToken:      os.Getenv("DST_ADMIN_TOKEN"),
-		Logs:            NewLogBuffer(1000),
-		Players:         NewPlayerTracker(),
+		Logs:            NewLogBuffer(logBufferSize),
+		Players:         NewPlayerTracker(playerStaleAge),
+		SaveDelay:       saveDelay,
 		env:             env,
 		shutdownTimeout: *shutdownTimeout,
 	}
 
 	// Health checker waits for the observer to discover the query port
-	sup.Health = NewHealthChecker(&sup.State)
+	sup.Health = NewHealthChecker(&sup.State, healthInterval, healthTimeout)
 	go sup.Health.Run()
 
 	// Observer watches DST stdout for port announcements, player events, etc.
-	sup.Observer = NewObserver(sup)
+	sup.Observer = NewObserver(sup, playerPollInterval)
 	go sup.Observer.Run(sup.Logs)
 
 	// Start HTTP server immediately so probes work during install
@@ -85,7 +95,7 @@ func main() {
 
 	sup.SetProcess(dst)
 	sup.ServerStart = time.Now()
-	slog.Info("DST server launched, waiting for observer + A2S readiness")
+	slog.Info("DST server launched, waiting for observer readiness")
 
 	// Wait for either a signal or the DST process to exit
 	sigCh := make(chan os.Signal, 1)
@@ -111,4 +121,33 @@ func setDefault(key, value string) {
 	if os.Getenv(key) == "" {
 		os.Setenv(key, value)
 	}
+}
+
+// envDuration reads a duration from an env var as seconds (integer).
+// Returns the default if unset or unparseable.
+func envDuration(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	secs, err := strconv.Atoi(v)
+	if err != nil || secs <= 0 {
+		slog.Warn("invalid env duration, using default", "key", key, "value", v, "default", def)
+		return def
+	}
+	return time.Duration(secs) * time.Second
+}
+
+// envInt reads an integer from an env var. Returns the default if unset or unparseable.
+func envInt(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		slog.Warn("invalid env int, using default", "key", key, "value", v, "default", def)
+		return def
+	}
+	return n
 }

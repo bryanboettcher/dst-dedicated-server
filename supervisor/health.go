@@ -23,11 +23,11 @@ type HealthChecker struct {
 	lastPoll time.Time
 }
 
-func NewHealthChecker(state *StateManager) *HealthChecker {
+func NewHealthChecker(state *StateManager, interval, timeout time.Duration) *HealthChecker {
 	return &HealthChecker{
 		state:    state,
-		interval: 10 * time.Second,
-		timeout:  3 * time.Second,
+		interval: interval,
+		timeout:  timeout,
 		portCh:   make(chan string, 1),
 	}
 }

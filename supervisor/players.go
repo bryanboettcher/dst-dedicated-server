@@ -20,10 +20,10 @@ type PlayerTracker struct {
 	maxAge  time.Duration
 }
 
-func NewPlayerTracker() *PlayerTracker {
+func NewPlayerTracker(maxAge time.Duration) *PlayerTracker {
 	return &PlayerTracker{
 		players: make(map[string]*Player),
-		maxAge:  60 * time.Second, // age out after missing 2-3 poll cycles
+		maxAge:  maxAge,
 	}
 }
 

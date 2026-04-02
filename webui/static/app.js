@@ -227,6 +227,17 @@ async function clusterRollback() {
   }
 }
 
+async function syncPlayers() {
+  for (const name of shardNames) {
+    try {
+      await fetch(`/shard/${name}/api/players/sync`, { method: 'POST' });
+    } catch (err) {
+      toast(`[${name}] ${err.message}`, 'err');
+    }
+  }
+  toast('player sync triggered on all shards', 'ok');
+}
+
 async function clusterCommand(cmd) {
   const name = getMaster();
   try {

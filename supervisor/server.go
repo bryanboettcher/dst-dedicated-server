@@ -21,6 +21,7 @@ type Supervisor struct {
 	ShardName   string
 	IsMaster    bool
 	AdminToken  string
+	SaveDelay   time.Duration
 
 	// Runtime fields discovered by the Observer from DST stdout
 	runtimeMu sync.RWMutex
@@ -98,7 +99,7 @@ func (s *Supervisor) Shutdown() error {
 	if err := dst.SendCommand("c_save()"); err != nil {
 		slog.Warn("failed to send save command", "error", err)
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(s.SaveDelay)
 
 	slog.Info("sending c_shutdown()")
 	if err := dst.SendCommand("c_shutdown()"); err != nil {
@@ -133,7 +134,7 @@ func (s *Supervisor) Restart() error {
 	// Save and stop
 	slog.Info("restart: sending c_save()")
 	dst.SendCommand("c_save()")
-	time.Sleep(5 * time.Second)
+	time.Sleep(s.SaveDelay)
 
 	slog.Info("restart: sending c_shutdown()")
 	dst.SendCommand("c_shutdown()")

@@ -29,6 +29,7 @@ The supervisor replaces the old shell entrypoint. It manages the DST binary life
 | `/api/restart` | POST | Save + stop + relaunch DST (not the container) |
 | `/api/rollback/{days}` | POST | c_rollback() or c_rollback(N) |
 | `/api/console` | POST | Send arbitrary console command (body = command text) |
+| `/api/players/sync` | POST | Trigger immediate c_listplayers() poll |
 
 Management endpoints are token-gated via `DST_ADMIN_TOKEN` env var if set.
 
@@ -40,6 +41,16 @@ Management endpoints are token-gated via `DST_ADMIN_TOKEN` env var if set.
 | `CLUSTER_NAME` | `DST_Cluster` | Cluster directory name under /dst/config |
 | `DST_ADMIN_TOKEN` | (empty) | Bearer token for management API, disabled if empty |
 | `PUID` / `PGID` | (from image) | Override UID/GID for the dst user |
+| `DST_HEALTH_INTERVAL` | `10` | A2S health probe interval in seconds |
+| `DST_HEALTH_TIMEOUT` | `3` | A2S health probe timeout in seconds |
+| `DST_PLAYER_POLL_INTERVAL` | `300` | c_listplayers() poll interval in seconds |
+| `DST_PLAYER_STALE` | `720` | Seconds before unseen players are pruned |
+| `DST_SAVE_DELAY` | `5` | Seconds to wait after c_save() before proceeding |
+| `DST_LOG_BUFFER_SIZE` | `1000` | Number of log lines retained in the ring buffer |
+
+### A2S Health Checking (currently inactive for DST)
+
+The supervisor includes a standard Valve A2S_INFO UDP query implementation with challenge-response support. However, DST does not respond to A2S queries on any port — the game uses Klei's lobby API for server discovery instead. The A2S health checker runs but all probes fail silently (logged at DEBUG level). Readiness transitions are driven entirely by the observer watching DST's stdout. The A2S code is retained for potential future use if Klei enables query support, and is correct for other Source engine games.
 
 ### Volumes
 
